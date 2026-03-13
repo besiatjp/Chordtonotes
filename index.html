@@ -414,27 +414,27 @@ function validateBChord(){
 // RECONNAISSANCE VOCALE
 // ═══════════════════════════════════════
 
-// Reconnaissance en en-US — l'utilisateur dit C D E F G A B
-// L'affichage reste en français (Do Ré Mi Fa Sol La Si)
+// Reconnaissance en it-IT — solfège italien natif
+// "Do Re Mi Fa Sol La Si" — parfaitement distinct phonétiquement
 const VOICE_MAP = {
-  // C → Do
-  'c':'Do','see':'Do','sea':'Do','si':'Do','cee':'Do','key':'Do',
-  // D → Ré
-  'd':'Ré','dee':'Ré','de':'Ré','the':'Ré','dea':'Ré',
-  // E → Mi
-  'e':'Mi','ee':'Mi','ea':'Mi','he':'Mi','me':'Mi',
-  // F → Fa
-  'f':'Fa','ef':'Fa','eff':'Fa','ph':'Fa',
-  // G → Sol
-  'g':'Sol','gee':'Sol','je':'Sol','jee':'Sol','gay':'Sol','jay':'Sol',
-  // A → La
-  'a':'La','ay':'La','eh':'La','aye':'La',
-  // B → Si
-  'b':'Si','be':'Si','bee':'Si','be.':'Si','beat':'Si',
+  // Do
+  'do':'Do','dò':'Do','don':'Do',
+  // Re (en italien : pas d'accent)
+  're':'Ré','ré':'Ré','rè':'Ré','re,':'Ré',
+  // Mi
+  'mi':'Mi','mì':'Mi',
+  // Fa
+  'fa':'Fa','fà':'Fa',
+  // Sol
+  'sol':'Sol','sole':'Sol','sols':'Sol',
+  // La
+  'la':'La','là':'La',
+  // Si
+  'si':'Si','sì':'Si',
 };
 
-// Indice affiché sur le bouton micro quand actif
-const MIC_HINT = 'C D E F G A B';
+// Indice affiché pendant l'écoute
+const MIC_HINT = 'Do · Re · Mi · Fa · Sol · La · Si';
 
 let recognition = null;
 let micActive = false;
@@ -448,7 +448,7 @@ function initSpeech(){
     return false;
   }
   recognition = new SR();
-  recognition.lang = 'en-US';       // anglais américain — bien meilleur pour les lettres
+  recognition.lang = 'it-IT';
   recognition.continuous = false;
   recognition.interimResults = true;
   recognition.maxAlternatives = 5;
@@ -496,20 +496,16 @@ function initSpeech(){
         allTranscripts.push(e.results[r][a].transcript.toLowerCase().trim());
       }
     }
-
-    // Transcription qui donne le plus de notes
     let best=[];
     for(const t of allTranscripts){
       const notes=extractNotes(t);
       if(notes.length>best.length)best=notes;
     }
-
-    // Affichage interimaire en français avec les slots de la portée
+    // Affichage interimaire en français avec slots
     if(best.length>0&&best.length<3){
       const placed=placeOnStaff(best).map(n=>n||'·');
       setFeedback('listening','🎤 '+placed.join(' · ')+' …');
     }
-
     const isFinal=e.results[e.results.length-1].isFinal;
     if(best.length>=3||(isFinal&&best.length>0)){
       micShouldRestart=false;
@@ -522,8 +518,6 @@ function initSpeech(){
 }
 
 function extractNotes(transcript){
-  // en-US : Chrome retourne souvent les lettres séparées par des espaces
-  // ex: "C D E" → ["c","d","e"] ou "see dee ee"
   const clean=transcript.replace(/[,.'!?]/g,' ');
   const tokens=clean.split(/\s+/).filter(Boolean);
   const found=[];
@@ -539,17 +533,14 @@ function extractNotes(transcript){
   return found;
 }
 
-// Retourne les 3 slots de la portée avec les notes détectées à leur bonne position
 function placeOnStaff(detectedNames){
   const expected=CHORDS[currentIndex].notes.map(n=>n.replace(/\d/,''));
   return expected.map(exp=>detectedNames.includes(exp)?exp:null);
 }
 
-// Injecte les notes détectées dans l'ordre de la portée, pas l'ordre vocal
 function injectVoiceNotes(detectedNames){
   if(selectedNotes.length>0)resetAnswer();
   const expected=CHORDS[currentIndex].notes.map(n=>n.replace(/\d/,''));
-  // Construire la liste ordonnée : position 0,1,2 de la portée
   const ordered=expected.filter(exp=>detectedNames.includes(exp));
   for(const name of ordered){
     if(selectedNotes.length>=3)break;
