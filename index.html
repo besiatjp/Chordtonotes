@@ -466,9 +466,10 @@ function initSpeech(){
   };
 
   recognition.onerror = (e) => {
-    if(e.error==='no-speech'){
+    // Erreurs silencieuses — pas de message à l'utilisateur
+    if(e.error==='no-speech'||e.error==='aborted'){
       micActive=false;
-      if(micShouldRestart){
+      if(e.error==='no-speech'&&micShouldRestart){
         const done=(currentExo==='A'&&notesAnswered)||(currentExo==='B'&&(bNotesOk||bAnswered));
         if(!done){setTimeout(()=>{try{recognition.start();}catch(x){}},120);return;}
       }
@@ -513,20 +514,25 @@ function initSpeech(){
 }
 
 function extractNotes(transcript){
-  // Stratégie 1 : chercher "note X" — le mot "note" suivi du nom de la note
   const found=[];
   const clean=transcript.replace(/[,.'!?]/g,' ');
   const tokens=clean.split(/\s+/).filter(Boolean);
 
+  // Log pour debug — visible dans la console Chrome
+  console.log('Transcript:', transcript, '| Tokens:', tokens);
+
+  // Mots déclencheurs — toutes les variantes de "note" en it-IT
+  const TRIGGERS = new Set(['note','notté','notte','not','nota','noter','notes']);
+
+  // Stratégie 1 : chercher déclencheur + nom de note
   for(let i=0;i<tokens.length;i++){
-    if(tokens[i]==='note'&&i+1<tokens.length){
+    if(TRIGGERS.has(tokens[i])&&i+1<tokens.length){
       const c=NOTE_WORDS[tokens[i+1]];
       if(c&&!found.includes(c))found.push(c);
     }
   }
 
-  // Stratégie 2 : si aucun "note X" trouvé, chercher les noms seuls
-  // (fallback au cas où Chrome n'entend pas "note")
+  // Stratégie 2 : fallback — chercher les noms seuls si aucun déclencheur
   if(found.length===0){
     for(const token of tokens){
       const c=NOTE_WORDS[token];
@@ -534,6 +540,7 @@ function extractNotes(transcript){
     }
   }
 
+  console.log('Detected notes:', found);
   return found;
 }
 
