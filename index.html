@@ -414,27 +414,22 @@ function validateBChord(){
 // RECONNAISSANCE VOCALE
 // ═══════════════════════════════════════
 
-// Reconnaissance en it-IT — solfège italien natif
-// "Do Re Mi Fa Sol La Si" — parfaitement distinct phonétiquement
-const VOICE_MAP = {
-  // Do
-  'do':'Do','dò':'Do','don':'Do',
-  // Re (en italien : pas d'accent)
-  're':'Ré','ré':'Ré','rè':'Ré','re,':'Ré',
-  // Mi
+// Reconnaissance en it-IT
+// L'utilisateur dit "note do", "note re", "note sol" etc.
+// Le mot "note" avant chaque nom lève toute ambiguïté grammaticale
+
+const NOTE_WORDS = {
+  'do':'Do','dò':'Do','don':'Do','doh':'Do',
+  're':'Ré','ré':'Ré','rè':'Ré',
   'mi':'Mi','mì':'Mi',
-  // Fa
   'fa':'Fa','fà':'Fa',
-  // Sol
-  'sol':'Sol','sole':'Sol','sols':'Sol',
-  // La
+  'sol':'Sol','sole':'Sol',
   'la':'La','là':'La',
-  // Si
   'si':'Si','sì':'Si',
 };
 
 // Indice affiché pendant l'écoute
-const MIC_HINT = 'Do · Re · Mi · Fa · Sol · La · Si';
+const MIC_HINT = '🎤  "note do"  "note re"  "note sol" …';
 
 let recognition = null;
 let micActive = false;
@@ -456,7 +451,7 @@ function initSpeech(){
   recognition.onstart = () => {
     micActive = true;
     document.getElementById('btn-mic').classList.add('listening');
-    setFeedback('listening', '🎤 ' + MIC_HINT);
+    setFeedback('listening', MIC_HINT);
   };
 
   recognition.onend = () => {
@@ -501,7 +496,7 @@ function initSpeech(){
       const notes=extractNotes(t);
       if(notes.length>best.length)best=notes;
     }
-    // Affichage interimaire en français avec slots
+    // Affichage interimaire
     if(best.length>0&&best.length<3){
       const placed=placeOnStaff(best).map(n=>n||'·');
       setFeedback('listening','🎤 '+placed.join(' · ')+' …');
@@ -518,18 +513,27 @@ function initSpeech(){
 }
 
 function extractNotes(transcript){
+  // Stratégie 1 : chercher "note X" — le mot "note" suivi du nom de la note
+  const found=[];
   const clean=transcript.replace(/[,.'!?]/g,' ');
   const tokens=clean.split(/\s+/).filter(Boolean);
-  const found=[];
-  for(const token of tokens){
-    const c=VOICE_MAP[token];
-    if(c&&!found.includes(c))found.push(c);
+
+  for(let i=0;i<tokens.length;i++){
+    if(tokens[i]==='note'&&i+1<tokens.length){
+      const c=NOTE_WORDS[tokens[i+1]];
+      if(c&&!found.includes(c))found.push(c);
+    }
   }
-  // Bigrammes collés
-  for(let i=0;i<tokens.length-1;i++){
-    const c=VOICE_MAP[tokens[i]+tokens[i+1]];
-    if(c&&!found.includes(c))found.push(c);
+
+  // Stratégie 2 : si aucun "note X" trouvé, chercher les noms seuls
+  // (fallback au cas où Chrome n'entend pas "note")
+  if(found.length===0){
+    for(const token of tokens){
+      const c=NOTE_WORDS[token];
+      if(c&&!found.includes(c))found.push(c);
+    }
   }
+
   return found;
 }
 
