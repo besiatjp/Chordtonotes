@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>ChordToNotes</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,300;0,400;1,300&family=Space+Mono:wght@400;700&display=swap');
+  :root { --bg:#F7F4EE;--ink:#1A1612;--accent:#8B3A2A;--green:#3A7A4A;--muted:#9A9088;--gold:#7A6A2A; }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{width:100%;height:100%;background:var(--bg);color:var(--ink);font-family:'Crimson Pro',Georgia,serif;overflow:hidden;-webkit-tap-highlight-color:transparent;}
+
+  /* TOPBAR */
+  #topbar{position:fixed;top:0;left:0;right:0;height:44px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;z-index:10;}
+  #mode-indicator{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);}
+  #level-badge{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--accent);border-radius:2px;padding:3px 8px;opacity:0;transition:opacity .4s;}
+  #level-badge.visible{opacity:1;}
+  #topbar-right{display:flex;gap:8px;align-items:center;}
+  #btn-stats,#btn-mode{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink);background:transparent;border:1px solid var(--muted);border-radius:2px;padding:5px 12px;cursor:pointer;touch-action:manipulation;}
+  #btn-stats:hover,#btn-mode:hover{border-color:var(--ink);}
+
+  /* APP */
+  #app{display:flex;flex-direction:column;align-items:center;justify-content:center;width:100vw;height:100vh;padding:48px 20px 16px;gap:10px;}
+  #progress{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.08em;color:var(--muted);}
+  #chord-title{font-size:clamp(18px,2.8vw,28px);font-weight:300;letter-spacing:.08em;height:36px;display:flex;align-items:center;justify-content:center;text-align:center;}
+  #inversion-label{font-family:'Space Mono',monospace;font-size:clamp(10px,1.3vw,12px);letter-spacing:.1em;text-transform:uppercase;color:var(--accent);height:16px;display:flex;align-items:center;justify-content:center;}
+  #staff-container{width:100%;max-width:680px;display:flex;align-items:center;justify-content:center;}
+  #staff-svg{width:100%;max-width:680px;overflow:visible;}
+
+  /* SELECTION */
+  #selection-display{font-family:'Space Mono',monospace;font-size:clamp(12px,1.5vw,15px);letter-spacing:.1em;color:var(--muted);height:20px;display:flex;align-items:center;justify-content:center;gap:14px;}
+  #selection-display span.filled{color:var(--ink);font-weight:700;}
+
+  /* FEEDBACK */
+  #feedback{font-size:clamp(15px,2.2vw,22px);font-weight:300;letter-spacing:.05em;height:28px;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .25s;}
+  #feedback.correct{color:var(--green);opacity:1;}
+  #feedback.wrong{color:var(--accent);opacity:1;}
+  #feedback.partial{color:var(--gold);opacity:1;}
+  #feedback.listening{color:var(--muted);opacity:1;}
+
+  /* PALETTE */
+  #palette{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+  .note-btn{font-family:'Crimson Pro',serif;font-size:clamp(15px,2vw,20px);font-weight:400;width:clamp(42px,6.5vw,54px);height:clamp(42px,6.5vw,54px);border-radius:50%;border:1.5px solid var(--ink);background:transparent;color:var(--ink);cursor:pointer;transition:background .15s,color .15s,transform .1s;touch-action:manipulation;display:flex;align-items:center;justify-content:center;}
+  .note-btn:active{transform:scale(.93);}
+  .note-btn.selected{background:var(--ink);color:var(--bg);}
+  .note-btn:disabled{opacity:.3;cursor:default;}
+
+  /* MICRO */
+  #btn-mic{width:clamp(42px,6.5vw,54px);height:clamp(42px,6.5vw,54px);border-radius:50%;border:1.5px solid var(--muted);background:transparent;color:var(--muted);cursor:pointer;touch-action:manipulation;display:flex;align-items:center;justify-content:center;font-size:20px;transition:border-color .2s,color .2s,background .2s,transform .1s;}
+  #btn-mic:active{transform:scale(.93);}
+  #btn-mic.listening{border-color:var(--accent);color:var(--bg);background:var(--accent);animation:pulse 1s ease-in-out infinite;}
+  #btn-mic.unavailable{opacity:.25;cursor:default;pointer-events:none;}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(139,58,42,.4);}50%{box-shadow:0 0 0 8px rgba(139,58,42,.0);}}
+
+  /* ZONE ACCORD B */
+  #chord-answer-zone{display:none;flex-direction:column;align-items:center;gap:8px;position:relative;}
+  #chord-answer-zone.visible{display:flex;}
+  #btn-chord-pick{font-family:'Crimson Pro',serif;font-size:clamp(14px,1.8vw,18px);font-weight:400;letter-spacing:.05em;color:var(--ink);background:transparent;border:1.5px solid var(--ink);border-radius:3px;padding:8px 24px;cursor:pointer;touch-action:manipulation;transition:background .15s,color .15s;min-width:200px;text-align:center;}
+  #btn-chord-pick.chosen{background:var(--ink);color:var(--bg);}
+  #chord-dropdown{display:none;position:absolute;top:100%;left:50%;transform:translateX(-50%);background:var(--bg);border:1px solid var(--ink);border-radius:3px;z-index:50;min-width:220px;box-shadow:0 4px 20px rgba(0,0,0,.12);max-height:280px;overflow-y:auto;}
+  #chord-dropdown.open{display:block;}
+  .chord-option{font-family:'Crimson Pro',serif;font-size:17px;font-weight:400;padding:10px 20px;cursor:pointer;transition:background .1s;touch-action:manipulation;}
+  .chord-option:hover{background:rgba(26,22,18,.07);}
+  .inv-submenu{display:none;background:rgba(26,22,18,.03);border-top:1px solid rgba(26,22,18,.1);}
+  .inv-submenu.open{display:block;}
+  .inv-option{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.06em;padding:8px 20px 8px 32px;cursor:pointer;transition:background .1s;touch-action:manipulation;}
+  .inv-option:hover{background:rgba(26,22,18,.07);}
+
+  /* CONTROLS */
+  #controls{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;align-items:center;}
+  .btn{font-family:'Crimson Pro',serif;font-size:clamp(13px,1.7vw,16px);font-weight:400;letter-spacing:.05em;color:var(--bg);background:var(--ink);border:none;border-radius:2px;padding:9px 20px;cursor:pointer;transition:opacity .2s,transform .1s;touch-action:manipulation;}
+  .btn:active{transform:scale(.96);}
+  .btn.secondary{background:transparent;color:var(--ink);border:1px solid var(--ink);}
+
+  /* OVERLAYS */
+  .overlay{display:none;position:fixed;inset:0;background:rgba(26,22,18,.6);z-index:100;align-items:center;justify-content:center;}
+  .overlay.open{display:flex;}
+
+  /* MODE PANEL */
+  #mode-panel{background:var(--bg);border:1px solid var(--ink);border-radius:4px;padding:28px 36px;display:flex;flex-direction:column;gap:6px;width:clamp(320px,60vw,520px);max-height:90vh;overflow-y:auto;}
+  #mode-panel h2{font-family:'Crimson Pro',serif;font-weight:300;font-size:20px;letter-spacing:.06em;text-align:center;margin-bottom:6px;}
+  .mode-section-title{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-top:10px;margin-bottom:2px;padding-left:4px;}
+  .mode-option{display:flex;align-items:flex-start;gap:12px;padding:10px 14px;border:1px solid transparent;border-radius:3px;cursor:pointer;transition:border-color .15s,background .15s;touch-action:manipulation;}
+  .mode-option:hover{background:rgba(26,22,18,.05);}
+  .mode-option.active{border-color:var(--ink);background:rgba(26,22,18,.06);}
+  .mode-option.disabled-mode{opacity:.32;cursor:default;pointer-events:none;}
+  .mode-num{font-family:'Space Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:.1em;padding-top:4px;min-width:22px;}
+  .mode-info{display:flex;flex-direction:column;gap:1px;}
+  .mode-name{font-size:17px;font-weight:400;}
+  .mode-desc{font-size:12px;font-weight:300;color:var(--muted);font-style:italic;}
+  .panel-close{margin-top:10px;align-self:center;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;background:transparent;border:none;color:var(--muted);cursor:pointer;padding:6px 12px;}
+  .panel-close:hover{color:var(--ink);}
+
+  /* STATS PANEL */
+  #stats-panel{background:var(--bg);border:1px solid var(--ink);border-radius:4px;padding:28px 36px;display:flex;flex-direction:column;gap:16px;width:clamp(340px,72vw,700px);max-height:88vh;overflow-y:auto;}
+  #stats-panel h2{font-family:'Crimson Pro',serif;font-weight:300;font-size:22px;letter-spacing:.06em;text-align:center;}
+  #stats-tabs{display:flex;gap:0;border:1px solid var(--ink);border-radius:3px;overflow:hidden;align-self:center;}
+  .stats-tab{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;padding:7px 24px;cursor:pointer;background:transparent;color:var(--muted);border:none;transition:background .15s,color .15s;touch-action:manipulation;}
+  .stats-tab.active{background:var(--ink);color:var(--bg);}
+  #stats-global{display:flex;align-items:baseline;justify-content:center;gap:10px;}
+  #global-rate{font-family:'Crimson Pro',serif;font-size:56px;font-weight:300;line-height:1;}
+  #global-label{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.1em;color:var(--muted);}
+  #global-count{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:.06em;}
+  #stats-table{display:flex;flex-direction:column;gap:12px;}
+  .stat-chord-group{display:flex;flex-direction:column;gap:5px;}
+  .stat-chord-label{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+  .stat-row{display:grid;grid-template-columns:160px 1fr 46px;align-items:center;gap:12px;}
+  .stat-row-name{font-family:'Crimson Pro',serif;font-size:14px;color:var(--ink);font-style:italic;}
+  .stat-bar-track{height:7px;background:rgba(26,22,18,.1);border-radius:4px;overflow:hidden;}
+  .stat-bar-fill{height:100%;border-radius:4px;transition:width .6s ease;}
+  .bar-none{width:4px;background:rgba(26,22,18,.15);}
+  .bar-low{background:var(--accent);}
+  .bar-mid{background:var(--gold);}
+  .bar-high{background:var(--green);}
+  .stat-pct{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);text-align:right;}
+  .stat-no-data{font-family:'Crimson Pro',serif;font-size:14px;font-style:italic;color:var(--muted);text-align:center;padding:16px 0;}
+  #stats-reset{align-self:center;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;background:transparent;border:1px solid var(--muted);color:var(--muted);border-radius:2px;cursor:pointer;padding:5px 14px;}
+  #stats-reset:hover{border-color:var(--accent);color:var(--accent);}
+
+  /* TOAST */
+  #level-toast{display:none;position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);font-family:'Crimson Pro',serif;font-size:16px;font-weight:300;letter-spacing:.06em;padding:12px 28px;border-radius:3px;z-index:200;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.2);}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div id="topbar">
+  <div id="mode-indicator">Mode 1 — Séquentiel · Exo A</div>
+  <div id="level-badge">Niveau 2</div>
+  <div id="topbar-right">
+    <button id="btn-stats" onclick="openStats()">Stats</button>
+    <button id="btn-mode" onclick="openModePanel()">Mode ▾</button>
+  </div>
+</div>
+
+<!-- OVERLAY MODES -->
+<div id="mode-overlay" class="overlay">
+  <div id="mode-panel">
+    <h2>Choisir un mode</h2>
+    <div class="mode-section-title">Exercice A — Accord vers Notes</div>
+    <div class="mode-option active" id="mode-opt-1" onclick="setMode(1,'A')"><div class="mode-num">01</div><div class="mode-info"><div class="mode-name">Séquentiel</div><div class="mode-desc">Accord par accord avec ses inversions</div></div></div>
+    <div class="mode-option" id="mode-opt-2" onclick="setMode(2,'A')"><div class="mode-num">02</div><div class="mode-info"><div class="mode-name">Mélangé</div><div class="mode-desc">Toutes les fondamentales, puis inversions</div></div></div>
+    <div class="mode-option" id="mode-opt-3" onclick="setMode(3,'A')"><div class="mode-num">03</div><div class="mode-info"><div class="mode-name">Aléatoire</div><div class="mode-desc">Ordre totalement aléatoire</div></div></div>
+    <div class="mode-option disabled-mode" id="mode-opt-4" onclick="setMode(4,'A')"><div class="mode-num">04</div><div class="mode-info"><div class="mode-name">Adaptatif</div><div class="mode-desc">Disponible après 21 réponses</div></div></div>
+    <div class="mode-section-title">Exercice B — Notes vers Accord</div>
+    <div class="mode-option" id="mode-opt-5" onclick="setMode(5,'B')"><div class="mode-num">05</div><div class="mode-info"><div class="mode-name">Séquentiel</div><div class="mode-desc">Identifier l'accord affiché</div></div></div>
+    <div class="mode-option" id="mode-opt-6" onclick="setMode(6,'B')"><div class="mode-num">06</div><div class="mode-info"><div class="mode-name">Mélangé</div><div class="mode-desc">Fondamentales puis inversions</div></div></div>
+    <div class="mode-option" id="mode-opt-7" onclick="setMode(7,'B')"><div class="mode-num">07</div><div class="mode-info"><div class="mode-name">Aléatoire</div><div class="mode-desc">Ordre totalement aléatoire</div></div></div>
+    <div class="mode-option disabled-mode" id="mode-opt-8" onclick="setMode(8,'B')"><div class="mode-num">08</div><div class="mode-info"><div class="mode-name">Adaptatif</div><div class="mode-desc">Disponible après 21 réponses exo B</div></div></div>
+    <button class="panel-close" onclick="closeModePanel()">Fermer</button>
+  </div>
+</div>
+
+<!-- OVERLAY STATS -->
+<div id="stats-overlay" class="overlay">
+  <div id="stats-panel">
+    <h2>Statistiques</h2>
+    <div id="stats-tabs">
+      <button class="stats-tab active" id="tab-a" onclick="switchStatsTab('A')">Exercice A</button>
+      <button class="stats-tab" id="tab-b" onclick="switchStatsTab('B')">Exercice B</button>
+    </div>
+    <div id="stats-global">
+      <div id="global-rate">—</div>
+      <div style="display:flex;flex-direction:column;gap:3px">
+        <div id="global-label">de réussite</div>
+        <div id="global-count">0 réponses</div>
+      </div>
+    </div>
+    <div id="stats-table"></div>
+    <button id="stats-reset" onclick="confirmReset()">Réinitialiser</button>
+    <button class="panel-close" onclick="closeStats()">Fermer</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="level-toast"></div>
+
+<!-- APP -->
+<div id="app">
+  <div id="progress">1 / 21</div>
+  <div id="chord-title">Accord de Do majeur</div>
+  <div id="inversion-label">Position fondamentale</div>
+  <div id="staff-container">
+    <svg id="staff-svg" viewBox="0 0 680 210" xmlns="http://www.w3.org/2000/svg"></svg>
+  </div>
+  <div id="selection-display">
+    <span id="slot-0">—</span><span id="slot-1">—</span><span id="slot-2">—</span>
+  </div>
+  <div id="feedback"></div>
+
+  <!-- Palette + micro sur la même ligne -->
+  <div id="palette">
+    <button class="note-btn" onclick="selectNote('Do')">Do</button>
+    <button class="note-btn" onclick="selectNote('Ré')">Ré</button>
+    <button class="note-btn" onclick="selectNote('Mi')">Mi</button>
+    <button class="note-btn" onclick="selectNote('Fa')">Fa</button>
+    <button class="note-btn" onclick="selectNote('Sol')">Sol</button>
+    <button class="note-btn" onclick="selectNote('La')">La</button>
+    <button class="note-btn" onclick="selectNote('Si')">Si</button>
+    <button id="btn-mic" onclick="toggleMic()" title="Reconnaissance vocale">🎤</button>
+  </div>
+
+  <div id="chord-answer-zone">
+    <button id="btn-chord-pick" onclick="toggleChordDropdown()">Quel accord ?</button>
+    <div id="chord-dropdown"></div>
+  </div>
+  <div id="controls">
+    <button class="btn secondary" onclick="resetAnswer()">Effacer</button>
+    <button class="btn" onclick="nextChord()">Suivant ▶</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+// DONNÉES
+// ═══════════════════════════════════════
+const NOTE_INDEX={'Do4':-1,'Ré4':0,'Mi4':1,'Fa4':2,'Sol4':3,'La4':4,'Si4':5,'Do5':6,'Ré5':7,'Mi5':8,'Fa5':9,'Sol5':10,'La5':11,'Si5':12,'Do6':13,'Ré6':14};
+const CHORDS=[
+  {name:'Do majeur', inv:'Position fondamentale',notes:['Do4','Mi4','Sol4']},
+  {name:'Do majeur', inv:'1ère inversion',       notes:['Mi4','Sol4','Do5']},
+  {name:'Do majeur', inv:'2ème inversion',       notes:['Sol4','Do5','Mi5']},
+  {name:'Ré mineur', inv:'Position fondamentale',notes:['Ré4','Fa4','La4']},
+  {name:'Ré mineur', inv:'1ère inversion',       notes:['Fa4','La4','Ré5']},
+  {name:'Ré mineur', inv:'2ème inversion',       notes:['La4','Ré5','Fa5']},
+  {name:'Mi mineur', inv:'Position fondamentale',notes:['Mi4','Sol4','Si4']},
+  {name:'Mi mineur', inv:'1ère inversion',       notes:['Sol4','Si4','Mi5']},
+  {name:'Mi mineur', inv:'2ème inversion',       notes:['Si4','Mi5','Sol5']},
+  {name:'Fa majeur', inv:'Position fondamentale',notes:['Fa4','La4','Do5']},
+  {name:'Fa majeur', inv:'1ère inversion',       notes:['La4','Do5','Fa5']},
+  {name:'Fa majeur', inv:'2ème inversion',       notes:['Do5','Fa5','La5']},
+  {name:'Sol majeur',inv:'Position fondamentale',notes:['Sol4','Si4','Ré5']},
+  {name:'Sol majeur',inv:'1ère inversion',       notes:['Si4','Ré5','Sol5']},
+  {name:'Sol majeur',inv:'2ème inversion',       notes:['Ré5','Sol5','Si5']},
+  {name:'La mineur', inv:'Position fondamentale',notes:['La4','Do5','Mi5']},
+  {name:'La mineur', inv:'1ère inversion',       notes:['Do5','Mi5','La5']},
+  {name:'La mineur', inv:'2ème inversion',       notes:['Mi5','La5','Do6']},
+  {name:'Si diminué',inv:'Position fondamentale',notes:['Si4','Ré5','Fa5']},
+  {name:'Si diminué',inv:'1ère inversion',       notes:['Ré5','Fa5','Si5']},
+  {name:'Si diminué',inv:'2ème inversion',       notes:['Fa5','Si5','Ré6']},
+];
+const CHORD_NAMES=['Do majeur','Ré mineur','Mi mineur','Fa majeur','Sol majeur','La mineur','Si diminué'];
+const INV_NAMES=['Position fondamentale','1ère inversion','2ème inversion'];
+
+// ═══════════════════════════════════════
+// ÉTAT
+// ═══════════════════════════════════════
+let currentMode=1,currentExo='A',sequence=[],seqPos=0,currentIndex=0;
+let selectedNotes=[],notesAnswered=false;
+let bNotesOk=false,bChordChosen=null,bAnswered=false;
+let exoBLevel=1;
+const LEVEL2_THRESHOLD=0.80;
+const statsA={},statsB={};
+let currentStatsTab='A';
+
+// ═══════════════════════════════════════
+// PORTÉE
+// ═══════════════════════════════════════
+const SVG_W=680,SVG_H=210,LINE_SPACING=18,NOTE_R=9;
+const Y_LINE1=105+4*(LINE_SPACING/2);
+const SX=75,SX2=630,SMX=(SX+SX2)/2;
+function noteY(i){return Y_LINE1-i*(LINE_SPACING/2);}
+function renderStaff(chord){
+  const svg=document.getElementById('staff-svg');svg.innerHTML='';
+  const ns='http://www.w3.org/2000/svg';
+  const el=(t,a)=>{const e=document.createElementNS(ns,t);Object.entries(a).forEach(([k,v])=>e.setAttribute(k,v));return e;};
+  svg.appendChild(el('rect',{x:0,y:0,width:SVG_W,height:SVG_H,fill:'#F7F4EE',rx:4}));
+  [1,3,5,7,9].forEach(i=>svg.appendChild(el('line',{x1:SX,y1:noteY(i),x2:SX2,y2:noteY(i),stroke:'#2C2620','stroke-width':'1.2'})));
+  const clef=el('text',{x:36,y:noteY(5)+28,'font-size':'66','font-family':'serif',fill:'#1A1612','text-anchor':'middle'});
+  clef.textContent='\uD834\uDD1E';svg.appendChild(clef);
+  function ledger(idx){
+    const lw=48,lines=[];
+    if(idx<=-1)for(let l=-1;l>=idx;l-=2)lines.push(l);
+    if(idx>=10) for(let l=11;l<=idx;l+=2)lines.push(l);
+    lines.forEach(l=>svg.appendChild(el('line',{x1:SMX-lw/2,y1:noteY(l),x2:SMX+lw/2,y2:noteY(l),stroke:'#2C2620','stroke-width':'1.2'})));
+  }
+  const idxs=chord.notes.map(n=>NOTE_INDEX[n]);
+  const maxI=Math.max(...idxs),minI=Math.min(...idxs);
+  idxs.forEach(i=>{ledger(i);svg.appendChild(el('ellipse',{cx:SMX,cy:noteY(i),rx:NOTE_R,ry:NOTE_R*.75,fill:'#1A1612'}));});
+  const up=idxs[1]<=5,ni=up?maxI:minI,cy=noteY(ni);
+  const sx=up?SMX+NOTE_R-1:SMX-NOTE_R+1;
+  svg.appendChild(el('line',{x1:sx,y1:cy,x2:sx,y2:up?cy-LINE_SPACING*3.5:cy+LINE_SPACING*3.5,stroke:'#1A1612','stroke-width':'1.5'}));
+}
+
+// ═══════════════════════════════════════
+// SÉQUENCES
+// ═══════════════════════════════════════
+function shuffle(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];}return b;}
+function buildSequence(mode){
+  const s21=Array.from({length:21},(_,i)=>i);
+  const mix=[0,3,6,9,12,15,18,1,4,7,10,13,16,19,2,5,8,11,14,17,20];
+  const m=((mode-1)%4)+1;
+  if(m===1)return s21;if(m===2)return mix;if(m===3)return shuffle(s21);
+  const st=mode<=4?statsA:statsB;
+  const sc=[];for(let b=0;b<21;b+=3){let e=0;for(let i=0;i<3;i++){const s=st[b+i]||{correct:0,total:0};if(s.total>0)e+=(1-s.correct/s.total);}sc.push({base:b,score:e});}
+  sc.sort((a,b)=>b.score-a.score);const seq=[];sc.forEach(({base})=>seq.push(base,base+1,base+2));return seq;
+}
+
+// ═══════════════════════════════════════
+// MODE PANEL
+// ═══════════════════════════════════════
+function openModePanel(){for(let m=1;m<=8;m++){const o=document.getElementById('mode-opt-'+m);if(o)o.classList.toggle('active',m===currentMode);}document.getElementById('mode-overlay').classList.add('open');}
+function closeModePanel(){document.getElementById('mode-overlay').classList.remove('open');}
+function setMode(mode,exo){
+  currentMode=mode;currentExo=exo;
+  sequence=buildSequence(mode);seqPos=0;currentIndex=sequence[0];
+  const ml=['Séquentiel','Mélangé','Aléatoire','Adaptatif'];
+  const mn=((mode-1)%4);
+  document.getElementById('mode-indicator').textContent='Mode '+(mn+1)+' — '+ml[mn]+' · Exo '+exo;
+  document.getElementById('chord-answer-zone').classList.toggle('visible',exo==='B');
+  const badge=document.getElementById('level-badge');
+  if(exo==='B'){badge.textContent='Niveau '+exoBLevel;badge.classList.add('visible');}else badge.classList.remove('visible');
+  closeModePanel();showChord(currentIndex);updateProgress();
+}
+
+// ═══════════════════════════════════════
+// AFFICHAGE
+// ═══════════════════════════════════════
+function showChord(index){
+  const chord=CHORDS[index];
+  if(currentExo==='A'){document.getElementById('chord-title').textContent='Accord de '+chord.name;document.getElementById('inversion-label').textContent=chord.inv;}
+  else{document.getElementById('chord-title').textContent='?';document.getElementById('inversion-label').textContent=exoBLevel===2?'— nom et inversion —':'— nom de l\'accord —';}
+  resetAnswer();renderStaff(chord);
+}
+
+// ═══════════════════════════════════════
+// SÉLECTION NOTE (commune A et B)
+// ═══════════════════════════════════════
+function selectNote(name){
+  if(currentExo==='B'){selectNoteB(name);return;}
+  if(notesAnswered||selectedNotes.includes(name)||selectedNotes.length>=3)return;
+  pushNote(name);
+  if(selectedNotes.length===3)validateA();
+}
+
+function pushNote(name){
+  selectedNotes.push(name);updateSlots(selectedNotes);
+  document.querySelectorAll('.note-btn').forEach(b=>{if(b.textContent===name)b.classList.add('selected');});
+}
+
+// ═══════════════════════════════════════
+// EXERCICE A
+// ═══════════════════════════════════════
+function validateA(){
+  notesAnswered=true;
+  const exp=CHORDS[currentIndex].notes.map(n=>n.replace(/\d/,''));
+  const ok=selectedNotes.every((n,i)=>n===exp[i]);
+  setFeedback(ok?'correct':'wrong',ok?'✔ Correct !':'✘  '+exp.join(' · '));
+  recordStat(statsA,currentIndex,ok);checkUnlockA();
+  document.querySelectorAll('.note-btn').forEach(b=>b.disabled=true);
+}
+
+// ═══════════════════════════════════════
+// EXERCICE B
+// ═══════════════════════════════════════
+function selectNoteB(name){
+  if(bNotesOk||bAnswered||selectedNotes.includes(name)||selectedNotes.length>=3)return;
+  pushNote(name);
+  if(selectedNotes.length===3)validateBNotes();
+}
+function validateBNotes(){
+  const exp=CHORDS[currentIndex].notes.map(n=>n.replace(/\d/,''));
+  const ok=selectedNotes.every((n,i)=>n===exp[i]);
+  document.querySelectorAll('.note-btn').forEach(b=>b.disabled=true);
+  if(ok){
+    bNotesOk=true;setFeedback('partial','✔ Notes correctes — identifie l\'accord');
+    const bp=document.getElementById('btn-chord-pick');bp.style.opacity='1';bp.style.pointerEvents='auto';
+  }else{
+    setFeedback('wrong','✘  '+exp.join(' · '));
+    bAnswered=true;recordStat(statsB,currentIndex,false);checkUnlockB();
+  }
+}
+function toggleChordDropdown(){
+  if(!bNotesOk||bAnswered)return;
+  const dd=document.getElementById('chord-dropdown');
+  if(dd.classList.contains('open')){dd.classList.remove('open');return;}
+  buildChordDropdown();dd.classList.add('open');
+}
+function buildChordDropdown(){
+  const dd=document.getElementById('chord-dropdown');dd.innerHTML='';
+  CHORD_NAMES.forEach(cn=>{
+    const item=document.createElement('div');item.className='chord-option';
+    if(exoBLevel===1){item.textContent=cn;item.onclick=()=>selectChordAnswer(cn,null);}
+    else{
+      item.textContent=cn+' ›';
+      const sub=document.createElement('div');sub.className='inv-submenu';
+      INV_NAMES.forEach(inv=>{const ii=document.createElement('div');ii.className='inv-option';ii.textContent=inv;ii.onclick=(e)=>{e.stopPropagation();selectChordAnswer(cn,inv);};sub.appendChild(ii);});
+      item.appendChild(sub);
+      item.onclick=()=>{document.querySelectorAll('.inv-submenu').forEach(s=>{if(s!==sub)s.classList.remove('open');});sub.classList.toggle('open');};
+    }
+    dd.appendChild(item);
+  });
+}
+function selectChordAnswer(cn,inv){
+  bChordChosen={name:cn,inv};
+  const lbl=inv?cn+' · '+inv:cn;
+  const btn=document.getElementById('btn-chord-pick');btn.textContent=lbl;btn.classList.add('chosen');
+  document.getElementById('chord-dropdown').classList.remove('open');
+  validateBChord();
+}
+function validateBChord(){
+  bAnswered=true;
+  const chord=CHORDS[currentIndex];
+  let ok=bChordChosen.name===chord.name;
+  if(exoBLevel===2&&ok)ok=bChordChosen.inv===chord.inv;
+  const lbl=exoBLevel===2?chord.name+' · '+chord.inv:chord.name;
+  setFeedback(ok?'correct':'wrong',ok?'✔ Correct !':'✘  '+lbl);
+  document.getElementById('chord-title').textContent='Accord de '+chord.name;
+  document.getElementById('inversion-label').textContent=chord.inv;
+  recordStat(statsB,currentIndex,ok);checkUnlockB();checkLevelUp();
+}
+
+// ═══════════════════════════════════════
+// RECONNAISSANCE VOCALE
+// ═══════════════════════════════════════
+
+// Reconnaissance en en-US — l'utilisateur dit C D E F G A B
+// L'affichage reste en français (Do Ré Mi Fa Sol La Si)
+const VOICE_MAP = {
+  // C → Do
+  'c':'Do','see':'Do','sea':'Do','si':'Do','cee':'Do','key':'Do',
+  // D → Ré
+  'd':'Ré','dee':'Ré','de':'Ré','the':'Ré','dea':'Ré',
+  // E → Mi
+  'e':'Mi','ee':'Mi','ea':'Mi','he':'Mi','me':'Mi',
+  // F → Fa
+  'f':'Fa','ef':'Fa','eff':'Fa','ph':'Fa',
+  // G → Sol
+  'g':'Sol','gee':'Sol','je':'Sol','jee':'Sol','gay':'Sol','jay':'Sol',
+  // A → La
+  'a':'La','ay':'La','eh':'La','aye':'La',
+  // B → Si
+  'b':'Si','be':'Si','bee':'Si','be.':'Si','beat':'Si',
+};
+
+// Indice affiché sur le bouton micro quand actif
+const MIC_HINT = 'C D E F G A B';
+
+let recognition = null;
+let micActive = false;
+let micShouldRestart = false;
+
+function initSpeech(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){
+    document.getElementById('btn-mic').classList.add('unavailable');
+    document.getElementById('btn-mic').title='Reconnaissance vocale non disponible';
+    return false;
+  }
+  recognition = new SR();
+  recognition.lang = 'en-US';       // anglais américain — bien meilleur pour les lettres
+  recognition.continuous = false;
+  recognition.interimResults = true;
+  recognition.maxAlternatives = 5;
+
+  recognition.onstart = () => {
+    micActive = true;
+    document.getElementById('btn-mic').classList.add('listening');
+    setFeedback('listening', '🎤 ' + MIC_HINT);
+  };
+
+  recognition.onend = () => {
+    micActive = false;
+    document.getElementById('btn-mic').classList.remove('listening');
+    if(micShouldRestart){
+      const done=(currentExo==='A'&&notesAnswered)||(currentExo==='B'&&(bNotesOk||bAnswered));
+      if(!done){ setTimeout(()=>{try{recognition.start();}catch(e){}},120); return; }
+    }
+    const fb=document.getElementById('feedback');
+    if(fb.classList.contains('listening')){fb.textContent='';fb.className='';}
+  };
+
+  recognition.onerror = (e) => {
+    if(e.error==='no-speech'){
+      micActive=false;
+      if(micShouldRestart){
+        const done=(currentExo==='A'&&notesAnswered)||(currentExo==='B'&&(bNotesOk||bAnswered));
+        if(!done){setTimeout(()=>{try{recognition.start();}catch(x){}},120);return;}
+      }
+      return;
+    }
+    micActive=false; micShouldRestart=false;
+    document.getElementById('btn-mic').classList.remove('listening');
+    const msgs={'not-allowed':'Accès micro refusé','network':'Erreur réseau'};
+    setFeedback('wrong',msgs[e.error]||'Erreur micro');
+    setTimeout(()=>{
+      const fb=document.getElementById('feedback');
+      if(fb.textContent.includes('micro')||fb.textContent.includes('Accès')){fb.textContent='';fb.className='';}
+    },2500);
+  };
+
+  recognition.onresult = (e) => {
+    const allTranscripts=[];
+    for(let r=0;r<e.results.length;r++){
+      for(let a=0;a<e.results[r].length;a++){
+        allTranscripts.push(e.results[r][a].transcript.toLowerCase().trim());
+      }
+    }
+
+    // Transcription qui donne le plus de notes
+    let best=[];
+    for(const t of allTranscripts){
+      const notes=extractNotes(t);
+      if(notes.length>best.length)best=notes;
+    }
+
+    // Affichage interimaire en français avec les slots de la portée
+    if(best.length>0&&best.length<3){
+      const placed=placeOnStaff(best).map(n=>n||'·');
+      setFeedback('listening','🎤 '+placed.join(' · ')+' …');
+    }
+
+    const isFinal=e.results[e.results.length-1].isFinal;
+    if(best.length>=3||(isFinal&&best.length>0)){
+      micShouldRestart=false;
+      recognition.stop();
+      injectVoiceNotes(best);
+    }
+  };
+
+  return true;
+}
+
+function extractNotes(transcript){
+  // en-US : Chrome retourne souvent les lettres séparées par des espaces
+  // ex: "C D E" → ["c","d","e"] ou "see dee ee"
+  const clean=transcript.replace(/[,.'!?]/g,' ');
+  const tokens=clean.split(/\s+/).filter(Boolean);
+  const found=[];
+  for(const token of tokens){
+    const c=VOICE_MAP[token];
+    if(c&&!found.includes(c))found.push(c);
+  }
+  // Bigrammes collés
+  for(let i=0;i<tokens.length-1;i++){
+    const c=VOICE_MAP[tokens[i]+tokens[i+1]];
+    if(c&&!found.includes(c))found.push(c);
+  }
+  return found;
+}
+
+// Retourne les 3 slots de la portée avec les notes détectées à leur bonne position
+function placeOnStaff(detectedNames){
+  const expected=CHORDS[currentIndex].notes.map(n=>n.replace(/\d/,''));
+  return expected.map(exp=>detectedNames.includes(exp)?exp:null);
+}
+
+// Injecte les notes détectées dans l'ordre de la portée, pas l'ordre vocal
+function injectVoiceNotes(detectedNames){
+  if(selectedNotes.length>0)resetAnswer();
+  const expected=CHORDS[currentIndex].notes.map(n=>n.replace(/\d/,''));
+  // Construire la liste ordonnée : position 0,1,2 de la portée
+  const ordered=expected.filter(exp=>detectedNames.includes(exp));
+  for(const name of ordered){
+    if(selectedNotes.length>=3)break;
+    if(selectedNotes.includes(name))continue;
+    if(currentExo==='B'){if(bNotesOk||bAnswered)break;pushNote(name);}
+    else{if(notesAnswered)break;pushNote(name);}
+  }
+  if(selectedNotes.length===3){
+    if(currentExo==='B')validateBNotes();
+    else validateA();
+  }
+}
+
+function toggleMic(){
+  if(!recognition&&!initSpeech())return;
+  if(micShouldRestart||micActive){
+    micShouldRestart=false;recognition.stop();
+    document.getElementById('btn-mic').classList.remove('listening');
+    const fb=document.getElementById('feedback');
+    if(fb.classList.contains('listening')){fb.textContent='';fb.className='';}
+    return;
+  }
+  const done=(currentExo==='A'&&notesAnswered)||(currentExo==='B'&&(bNotesOk||bAnswered));
+  if(done)return;
+  micShouldRestart=true;
+  try{recognition.start();}catch(e){}
+}
+
+// ═══════════════════════════════════════
+// NIVEAU AUTO (Exo B)
+// ═══════════════════════════════════════
+function checkLevelUp(){
+  if(exoBLevel===2)return;
+  const total=Object.values(statsB).reduce((s,v)=>s+v.total,0);if(total<21)return;
+  const correct=Object.values(statsB).reduce((s,v)=>s+v.correct,0);
+  if(correct/total>=LEVEL2_THRESHOLD){exoBLevel=2;document.getElementById('level-badge').textContent='Niveau 2';showToast('Niveau 2 débloqué — identifie maintenant les inversions !');}
+}
+function showToast(msg){const t=document.getElementById('level-toast');t.textContent=msg;t.style.display='block';setTimeout(()=>{t.style.display='none';},3500);}
+
+// ═══════════════════════════════════════
+// STATS
+// ═══════════════════════════════════════
+function recordStat(obj,idx,ok){if(!obj[idx])obj[idx]={correct:0,total:0};obj[idx].total++;if(ok)obj[idx].correct++;}
+function checkUnlockA(){const t=Object.values(statsA).reduce((s,v)=>s+v.total,0);if(t>=21){const o=document.getElementById('mode-opt-4');if(o)o.classList.remove('disabled-mode');}}
+function checkUnlockB(){const t=Object.values(statsB).reduce((s,v)=>s+v.total,0);if(t>=21){const o=document.getElementById('mode-opt-8');if(o)o.classList.remove('disabled-mode');}}
+function openStats(){renderStatsPanel(currentStatsTab);document.getElementById('stats-overlay').classList.add('open');}
+function closeStats(){document.getElementById('stats-overlay').classList.remove('open');}
+function switchStatsTab(tab){currentStatsTab=tab;document.getElementById('tab-a').classList.toggle('active',tab==='A');document.getElementById('tab-b').classList.toggle('active',tab==='B');renderStatsPanel(tab);}
+function renderStatsPanel(tab){
+  const st=tab==='A'?statsA:statsB;
+  const total=Object.values(st).reduce((s,v)=>s+v.total,0);
+  const ok=Object.values(st).reduce((s,v)=>s+v.correct,0);
+  const rEl=document.getElementById('global-rate');
+  const cEl=document.getElementById('global-count');
+  if(total===0){rEl.textContent='—';rEl.style.color='var(--muted)';}
+  else{const p=Math.round(ok/total*100);rEl.textContent=p+'%';rEl.style.color=p>=80?'var(--green)':p>=50?'var(--gold)':'var(--accent)';}
+  cEl.textContent=total+' réponse'+(total>1?'s':'');
+  const table=document.getElementById('stats-table');table.innerHTML='';
+  if(total===0){const nd=document.createElement('div');nd.className='stat-no-data';nd.textContent='Aucune donnée pour cet exercice.';table.appendChild(nd);return;}
+  for(let base=0;base<21;base+=3){
+    const grp=document.createElement('div');grp.className='stat-chord-group';
+    const lbl=document.createElement('div');lbl.className='stat-chord-label';lbl.textContent=CHORDS[base].name;grp.appendChild(lbl);
+    for(let inv=0;inv<3;inv++){
+      const idx=base+inv;const s=st[idx]||{correct:0,total:0};
+      const row=document.createElement('div');row.className='stat-row';
+      const nm=document.createElement('div');nm.className='stat-row-name';nm.textContent=CHORDS[idx].inv;row.appendChild(nm);
+      const track=document.createElement('div');track.className='stat-bar-track';
+      const fill=document.createElement('div');
+      if(s.total===0){fill.className='stat-bar-fill bar-none';}
+      else{const p=Math.round(s.correct/s.total*100);fill.className='stat-bar-fill '+(p>=80?'bar-high':p>=50?'bar-mid':'bar-low');fill.style.width=p+'%';}
+      track.appendChild(fill);row.appendChild(track);
+      const pEl=document.createElement('div');pEl.className='stat-pct';pEl.textContent=s.total===0?'—':Math.round(s.correct/s.total*100)+'%';row.appendChild(pEl);
+      grp.appendChild(row);
+    }
+    table.appendChild(grp);
+  }
+}
+function confirmReset(){
+  const tab=currentStatsTab;
+  if(!confirm('Réinitialiser les stats de l\'Exercice '+tab+' ?'))return;
+  if(tab==='A')Object.keys(statsA).forEach(k=>delete statsA[k]);
+  else Object.keys(statsB).forEach(k=>delete statsB[k]);
+  renderStatsPanel(tab);
+}
+
+// ═══════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════
+function resetAnswer(){
+  if(micActive&&recognition)recognition.stop();
+  selectedNotes=[];notesAnswered=false;bNotesOk=false;bChordChosen=null;bAnswered=false;
+  updateSlots([]);
+  document.getElementById('feedback').textContent='';document.getElementById('feedback').className='';
+  document.querySelectorAll('.note-btn').forEach(b=>{b.classList.remove('selected');b.disabled=false;});
+  const bp=document.getElementById('btn-chord-pick');bp.textContent='Quel accord ?';bp.classList.remove('chosen');
+  if(currentExo==='B'){bp.style.opacity='0.4';bp.style.pointerEvents='none';}
+  document.getElementById('chord-dropdown').classList.remove('open');
+}
+function setFeedback(cls,msg){const fb=document.getElementById('feedback');fb.textContent=msg;fb.className=cls;}
+function updateSlots(arr){['slot-0','slot-1','slot-2'].forEach((id,i)=>{const e=document.getElementById(id);if(arr[i]){e.textContent=arr[i];e.classList.add('filled');}else{e.textContent='—';e.classList.remove('filled');}});}
+function nextChord(){seqPos=(seqPos+1)%sequence.length;currentIndex=sequence[seqPos];updateProgress();showChord(currentIndex);}
+function updateProgress(){document.getElementById('progress').textContent=(seqPos+1)+' / '+sequence.length;}
+
+// ═══════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════
+sequence=buildSequence(1);seqPos=0;currentIndex=sequence[0];
+document.getElementById('btn-chord-pick').style.opacity='0.4';
+document.getElementById('btn-chord-pick').style.pointerEvents='none';
+initSpeech();
+showChord(currentIndex);updateProgress();
+</script>
+</body>
+</html>
