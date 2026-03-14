@@ -704,11 +704,15 @@ function updateProgress(){document.getElementById('progress').textContent=(seqPo
 // ═══════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════
-sequence=buildSequence(1);seqPos=0;currentIndex=sequence[0];
-document.getElementById('btn-chord-pick').style.opacity='0.4';
-document.getElementById('btn-chord-pick').style.pointerEvents='none';
-initSpeech();
-showChord(currentIndex);updateProgress();
+document.addEventListener('DOMContentLoaded', ()=>{
+  sequence=buildSequence(1);seqPos=0;currentIndex=sequence[0];
+  document.getElementById('btn-chord-pick').style.opacity='0.4';
+  document.getElementById('btn-chord-pick').style.pointerEvents='none';
+  initSpeech();
+  initMIDI();
+  showChord(currentIndex);
+  updateProgress();
+});
 
 // ═══════════════════════════════════════
 // MODULE MIDI
@@ -827,8 +831,6 @@ const _originalReset = resetAnswer;
 // On surcharge resetAnswer pour vider midiAccumulated aussi
 // (déjà géré dans resetAnswer via micAccumulated — on ajoute midiAccumulated)
 
-// Init MIDI au démarrage
-initMIDI();
 </script>
 </body>
 </html>
