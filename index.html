@@ -419,12 +419,19 @@ function validateBChord(){
 // Le mot "note" avant chaque nom lève toute ambiguïté grammaticale
 
 const NOTE_WORDS = {
-  'do':'Do','dò':'Do','don':'Do','doh':'Do',
-  're':'Ré','ré':'Ré','rè':'Ré',
-  'mi':'Mi','mì':'Mi',
+  // Do — Chrome it-IT confond avec "du", "tu", "dou"
+  'do':'Do','dò':'Do','don':'Do','doh':'Do','du':'Do','tu':'Do','dou':'Do','dù':'Do',
+  // Re
+  're':'Ré','ré':'Ré','rè':'Ré','rée':'Ré',
+  // Mi — Chrome confond avec "mia", "mie", "me"
+  'mi':'Mi','mì':'Mi','mia':'Mi','mie':'Mi','me':'Mi',
+  // Fa
   'fa':'Fa','fà':'Fa',
+  // Sol — Chrome reconnaît bien "sole" et "sol"
   'sol':'Sol','sole':'Sol',
+  // La
   'la':'La','là':'La',
+  // Si
   'si':'Si','sì':'Si',
 };
 
