@@ -141,6 +141,7 @@
   #midi-status.connected #midi-dot{background:var(--green);}
   #midi-status.active #midi-dot{background:var(--accent);animation:pulse 0.4s ease;}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 </head>
 <body>
 
@@ -432,6 +433,8 @@ function showChord(index){
   if(currentExo==='A'){document.getElementById('chord-title').textContent='Accord de '+chord.name;document.getElementById('inversion-label').textContent=chord.inv;}
   else{document.getElementById('chord-title').textContent='?';document.getElementById('inversion-label').textContent=exoBLevel===2?'— nom et inversion —':'— nom de l\'accord —';}
   resetAnswer();renderStaff(chord);
+  // Jouer l'accord en découverte (seulement Exo B — les notes sont visibles)
+  if(currentExo==='B') setTimeout(()=>playChord(chord.notes), 300);
 }
 
 // ═══════════════════════════════════════
@@ -467,6 +470,7 @@ function validateA(){
   recordStat(statsA,currentIndex,ok);checkUnlockA();
   document.querySelectorAll('.note-btn').forEach(b=>b.disabled=true);
   if(ok){
+    playChord(CHORDS[currentIndex].notes);
     startGrace();
     if(autoAdvance) setTimeout(()=>{ if(!inGrace) return; endGrace(); nextChord(); }, gracePeriod+800);
   }
@@ -534,6 +538,7 @@ function validateBChord(){
   document.getElementById('inversion-label').textContent=chord.inv;
   recordStat(statsB,currentIndex,ok);checkUnlockB();checkLevelUp();
   if(ok){
+    playChord(chord.notes);
     startGrace();
     if(autoAdvance) setTimeout(()=>{ if(!inGrace) return; endGrace(); nextChord(); }, gracePeriod+800);
   }
@@ -751,6 +756,77 @@ function onMIDIMessage(e){
   const placed=placeOnStaff(midiAccumulated).map(n=>n||'\u00b7');
   setFeedback('listening','\uD83C\uDFB9 '+placed.join(' \u00b7 '));
   if(midiAccumulated.length>=3){const ti=[...midiAccumulated];midiAccumulated=[];setTimeout(()=>injectVoiceNotes(ti),150);}
+}
+
+// ═══════════════════════════════════════
+// MODULE AUDIO — Tone.js + Salamander Piano
+// ═══════════════════════════════════════
+
+/*
+  Utilise Tone.Sampler avec les samples Salamander Piano (CDN jsDelivr)
+  Joue un arpège rapide (80ms entre notes) puis tenue
+  Respecte les octaves exacts des accords (Do4, Mi4, Sol4...)
+  Actif seulement si midiActive===false
+*/
+
+let piano = null;
+let audioReady = false;
+
+// Correspondance note française → notation Tone.js (ex: Do4 → C4)
+const NOTE_TO_TONE = {
+  'Do':'C','Ré':'D','Mi':'E','Fa':'F','Sol':'G','La':'A','Si':'B'
+};
+
+function noteToTone(noteName){
+  // noteName = ex: 'Do4', 'Mi5'
+  const name = noteName.replace(/\d/,'');
+  const octave = noteName.match(/\d/)[0];
+  const tone = NOTE_TO_TONE[name];
+  return tone ? tone + octave : null;
+}
+
+function initAudio(){
+  if(audioReady) return Promise.resolve();
+
+  // Salamander Grand Piano — samples hébergés sur jsDelivr
+  const baseUrl = 'https://cdn.jsdelivr.net/gh/gleitz/midi-js-soundfonts@gh-pages/MusyngKite/acoustic_grand_piano-mp3/';
+
+  piano = new Tone.Sampler({
+    urls: {
+      'A0':'A0.mp3','C1':'C1.mp3','D#1':'Ds1.mp3','F#1':'Fs1.mp3',
+      'A1':'A1.mp3','C2':'C2.mp3','D#2':'Ds2.mp3','F#2':'Fs2.mp3',
+      'A2':'A2.mp3','C3':'C3.mp3','D#3':'Ds3.mp3','F#3':'Fs3.mp3',
+      'A3':'A3.mp3','C4':'C4.mp3','D#4':'Ds4.mp3','F#4':'Fs4.mp3',
+      'A4':'A4.mp3','C5':'C5.mp3','D#5':'Ds5.mp3','F#5':'Fs5.mp3',
+      'A5':'A5.mp3','C6':'C6.mp3','D#6':'Ds6.mp3','F#6':'Fs6.mp3',
+    },
+    baseUrl: baseUrl,
+    onload: () => {
+      audioReady = true;
+      console.log('Piano samples chargés');
+    }
+  }).toDestination();
+
+  return Tone.start();
+}
+
+async function playChord(notes){
+  // notes = tableau de noms français avec octave ex: ['Do4','Mi4','Sol4']
+  if(midiActive) return;  // piano branché — pas de synthèse
+
+  await initAudio();
+  if(!audioReady){ console.log('Audio pas encore prêt'); return; }
+
+  const toneNotes = notes.map(n => noteToTone(n)).filter(Boolean);
+  if(toneNotes.length === 0) return;
+
+  const now = Tone.now();
+  const arpDelay = 0.08;  // 80ms entre chaque note
+  const duration = '2n';   // tenue demi-soupir
+
+  toneNotes.forEach((note, i) => {
+    piano.triggerAttackRelease(note, duration, now + i * arpDelay);
+  });
 }
 
 // ═══════════════════════════════════════
