@@ -135,6 +135,10 @@
   .setting-slider::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--ink);cursor:pointer;}
   .setting-hint{font-family:'Crimson Pro',serif;font-size:13px;font-style:italic;color:var(--muted);text-align:center;}
 
+  /* GRACE INLINE — caché par défaut, affiché via JS */
+  #grace-inline{ display:none !important; }
+  #grace-inline.visible{ display:flex !important; }
+
   /* TOGGLE AUTO */
   #toggle-auto{display:flex;align-items:center;gap:6px;cursor:pointer;touch-action:manipulation;user-select:none;}
   #toggle-auto span{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);transition:color .2s;}
@@ -711,8 +715,7 @@ function updateGrace(val){
 function toggleAuto(){
   autoAdvance=!autoAdvance;
   document.getElementById('toggle-auto').classList.toggle('on',autoAdvance);
-  const gi=document.getElementById('grace-inline');
-  gi.style.display=autoAdvance?'flex':'none';
+  document.getElementById('grace-inline').classList.toggle('visible',autoAdvance);
 }
 
 // ═══════════════════════════════════════
