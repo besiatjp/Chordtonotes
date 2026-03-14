@@ -21,7 +21,7 @@
   #btn-stats:hover,#btn-mode:hover{border-color:var(--ink);}
 
   /* APP */
-  #app{display:flex;flex-direction:column;align-items:center;justify-content:center;width:100vw;height:100vh;padding:48px 20px 16px;gap:10px;}
+  #app{display:flex;flex-direction:column;align-items:center;justify-content:center;width:100vw;height:100vh;padding:48px 20px 16px;gap:6px;}
   #progress{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.08em;color:var(--muted);}
   #chord-title{font-size:clamp(18px,2.8vw,28px);font-weight:300;letter-spacing:.08em;height:36px;display:flex;align-items:center;justify-content:center;text-align:center;}
   #inversion-label{font-family:'Space Mono',monospace;font-size:clamp(10px,1.3vw,12px);letter-spacing:.1em;text-transform:uppercase;color:var(--accent);height:16px;display:flex;align-items:center;justify-content:center;}
@@ -122,19 +122,9 @@
   #level-toast{display:none;position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);font-family:'Crimson Pro',serif;font-size:16px;font-weight:300;letter-spacing:.06em;padding:12px 28px;border-radius:3px;z-index:200;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.2);}
 
   /* MIDI */
-  #midi-status{
-    position:fixed;bottom:12px;left:50%;transform:translateX(-50%);
-    font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.1em;
-    text-transform:uppercase;color:var(--muted);
-    display:flex;align-items:center;gap:6px;
-    opacity:0;transition:opacity .4s;
-    pointer-events:none;
-  }
+  #midi-status{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:6px;opacity:0;transition:opacity .4s;pointer-events:none;}
   #midi-status.visible{opacity:1;}
-  #midi-dot{
-    width:6px;height:6px;border-radius:50%;
-    background:var(--muted);transition:background .3s;
-  }
+  #midi-dot{width:6px;height:6px;border-radius:50%;background:var(--muted);transition:background .3s;}
   #midi-status.connected #midi-dot{background:var(--green);}
   #midi-status.active #midi-dot{background:var(--accent);animation:pulse 0.4s ease;}
 </style>
@@ -205,14 +195,12 @@
   <div id="chord-title">Accord de Do majeur</div>
   <div id="inversion-label">Position fondamentale</div>
   <div id="staff-container">
-    <svg id="staff-svg" viewBox="0 0 680 210" xmlns="http://www.w3.org/2000/svg"></svg>
+    <svg id="staff-svg" viewBox="0 0 680 380" xmlns="http://www.w3.org/2000/svg"></svg>
   </div>
   <div id="selection-display">
     <span id="slot-0">—</span><span id="slot-1">—</span><span id="slot-2">—</span>
   </div>
   <div id="feedback"></div>
-
-  <!-- Palette + micro sur la même ligne -->
   <div id="palette">
     <button class="note-btn" onclick="selectNote('Do')">Do</button>
     <button class="note-btn" onclick="selectNote('Ré')">Ré</button>
@@ -223,7 +211,6 @@
     <button class="note-btn" onclick="selectNote('Si')">Si</button>
     <button id="btn-mic" onclick="toggleMic()" title="Reconnaissance vocale">🎤</button>
   </div>
-
   <div id="chord-answer-zone">
     <button id="btn-chord-pick" onclick="toggleChordDropdown()">Quel accord ?</button>
     <div id="chord-dropdown"></div>
@@ -277,32 +264,108 @@ const statsA={},statsB={};
 let currentStatsTab='A';
 
 // ═══════════════════════════════════════
-// PORTÉE
+// GRAND STAFF — RENDU
 // ═══════════════════════════════════════
-const SVG_W=680,SVG_H=210,LINE_SPACING=18,NOTE_R=9;
-const Y_LINE1=105+4*(LINE_SPACING/2);
-const SX=75,SX2=630,SMX=(SX+SX2)/2;
-function noteY(i){return Y_LINE1-i*(LINE_SPACING/2);}
+const SVG_W=680, SVG_H=380, LS=18, NR=9;
+const SX=78, SX2=630, SMX=(SX+SX2)/2;
+
+// Portée de Sol : ligne 1 (Mi4) à Y=120
+const Y_G1 = 120;   // Mi4 = ligne 1 clé de Sol
+function noteY(i){ return Y_G1 - i*(LS/2); }
+// noteY(1)=120, noteY(3)=102, noteY(5)=84, noteY(7)=66, noteY(9)=48
+
+// Portée de Fa : ligne 1 à Y=280
+const Y_F1 = 280;
+function noteFaY(i){ return Y_F1 - i*(LS/2); }
+// Fa : indices 0=Si2, 1=La2(ligne1), 2=Sol2, 3=Fa2(ligne2)...
+
 function renderStaff(chord){
-  const svg=document.getElementById('staff-svg');svg.innerHTML='';
+  const svg=document.getElementById('staff-svg');
+  svg.innerHTML='';
   const ns='http://www.w3.org/2000/svg';
   const el=(t,a)=>{const e=document.createElementNS(ns,t);Object.entries(a).forEach(([k,v])=>e.setAttribute(k,v));return e;};
+
+  // Fond
   svg.appendChild(el('rect',{x:0,y:0,width:SVG_W,height:SVG_H,fill:'#F7F4EE',rx:4}));
-  [1,3,5,7,9].forEach(i=>svg.appendChild(el('line',{x1:SX,y1:noteY(i),x2:SX2,y2:noteY(i),stroke:'#2C2620','stroke-width':'1.2'})));
-  const clef=el('text',{x:36,y:noteY(5)+28,'font-size':'66','font-family':'serif',fill:'#1A1612','text-anchor':'middle'});
-  clef.textContent='\uD834\uDD1E';svg.appendChild(clef);
+
+  // Bornes du grand staff
+  const topY = noteY(9);    // Fa5 = ligne 5 Sol = Y=48
+  const botY = noteFaY(1);  // La2 = ligne 1 Fa = Y=280
+
+  // ── Accolade gauche
+  const bx=16, midY=(topY+botY)/2, h=(botY-topY)/2;
+  const d=[
+    'M '+bx+' '+midY,
+    'C '+(bx-16)+' '+(midY-h*0.3)+' '+(bx-12)+' '+(topY+10)+' '+bx+' '+topY,
+    'C '+(bx+9)+' '+(topY-7)+' '+(bx+11)+' '+(topY+5)+' '+bx+' '+midY,
+    'C '+(bx-16)+' '+(midY+h*0.3)+' '+(bx-12)+' '+(botY-10)+' '+bx+' '+botY,
+    'C '+(bx+9)+' '+(botY+7)+' '+(bx+11)+' '+(botY-5)+' '+bx+' '+midY,
+    'Z'
+  ].join(' ');
+  svg.appendChild(el('path',{d:d,fill:'#1A1612'}));
+
+  // ── Double barre de début
+  svg.appendChild(el('line',{x1:SX-7,y1:topY,x2:SX-7,y2:botY,stroke:'#1A1612','stroke-width':'2.8'}));
+  svg.appendChild(el('line',{x1:SX-3,y1:topY,x2:SX-3,y2:botY,stroke:'#1A1612','stroke-width':'1.1'}));
+
+  // ── Barre de mesure droite
+  svg.appendChild(el('line',{x1:SX2,y1:topY,x2:SX2,y2:botY,stroke:'#1A1612','stroke-width':'1.2'}));
+
+  // ── 5 lignes portée de Sol (indices 1,3,5,7,9)
+  [1,3,5,7,9].forEach(i=>{
+    svg.appendChild(el('line',{x1:SX,y1:noteY(i),x2:SX2,y2:noteY(i),stroke:'#2C2620','stroke-width':'1.2'}));
+  });
+
+  // ── Clé de Sol
+  const gc=el('text',{x:46,y:noteY(5)+26,'font-size':'64','font-family':'serif',fill:'#1A1612','text-anchor':'middle'});
+  gc.textContent='\uD834\uDD1E';
+  svg.appendChild(gc);
+
+  // ── 5 lignes portée de Fa (indices 1,3,5,7,9 dans le repère Fa)
+  [1,3,5,7,9].forEach(i=>{
+    svg.appendChild(el('line',{x1:SX,y1:noteFaY(i),x2:SX2,y2:noteFaY(i),stroke:'#2C2620','stroke-width':'1.2'}));
+  });
+
+  // ── Clé de Fa (𝄢 = U+1D122)
+  const fc=el('text',{x:46,y:noteFaY(7)+4,'font-size':'42','font-family':'serif',fill:'#1A1612','text-anchor':'middle'});
+  fc.textContent='\uD834\uDD22';
+  svg.appendChild(fc);
+  // Points de la clé de Fa
+  svg.appendChild(el('circle',{cx:60,cy:noteFaY(8)+2,r:'3.5',fill:'#1A1612'}));
+  svg.appendChild(el('circle',{cx:60,cy:noteFaY(6)+2,r:'3.5',fill:'#1A1612'}));
+
+  // ── Do4 en pointillés (jonction entre les deux portées)
+  // Do4 = noteY(-1) — entre ligne 1 Sol (120) et portée Fa
+  const do4Y = noteY(-1);
+  svg.appendChild(el('line',{
+    x1:SMX-22,y1:do4Y,x2:SMX+22,y2:do4Y,
+    stroke:'#2C2620','stroke-width':'1',
+    'stroke-dasharray':'3,3',opacity:'0.4'
+  }));
+
+  // ── Lignes supplémentaires pour les notes (clé de Sol)
   function ledger(idx){
-    const lw=48,lines=[];
-    if(idx<=-1)for(let l=-1;l>=idx;l-=2)lines.push(l);
-    if(idx>=10) for(let l=11;l<=idx;l+=2)lines.push(l);
-    lines.forEach(l=>svg.appendChild(el('line',{x1:SMX-lw/2,y1:noteY(l),x2:SMX+lw/2,y2:noteY(l),stroke:'#2C2620','stroke-width':'1.2'})));
+    const lw=46, lines=[];
+    if(idx<=-1) for(let l=-1;l>=idx;l-=2) lines.push(l);
+    if(idx>=10)  for(let l=11;l<=idx;l+=2) lines.push(l);
+    lines.forEach(l=>{
+      if(l===-1) return; // Do4 déjà en pointillés
+      svg.appendChild(el('line',{x1:SMX-lw/2,y1:noteY(l),x2:SMX+lw/2,y2:noteY(l),stroke:'#2C2620','stroke-width':'1.2'}));
+    });
   }
+
+  // ── Notes (clé de Sol — tous les accords actuels)
   const idxs=chord.notes.map(n=>NOTE_INDEX[n]);
-  const maxI=Math.max(...idxs),minI=Math.min(...idxs);
-  idxs.forEach(i=>{ledger(i);svg.appendChild(el('ellipse',{cx:SMX,cy:noteY(i),rx:NOTE_R,ry:NOTE_R*.75,fill:'#1A1612'}));});
-  const up=idxs[1]<=5,ni=up?maxI:minI,cy=noteY(ni);
-  const sx=up?SMX+NOTE_R-1:SMX-NOTE_R+1;
-  svg.appendChild(el('line',{x1:sx,y1:cy,x2:sx,y2:up?cy-LINE_SPACING*3.5:cy+LINE_SPACING*3.5,stroke:'#1A1612','stroke-width':'1.5'}));
+  const maxI=Math.max(...idxs), minI=Math.min(...idxs);
+  idxs.forEach(i=>{
+    ledger(i);
+    svg.appendChild(el('ellipse',{cx:SMX,cy:noteY(i),rx:NR,ry:NR*.75,fill:'#1A1612'}));
+  });
+
+  // ── Hampe unique
+  const up=idxs[1]<=5, ni=up?maxI:minI, cy=noteY(ni);
+  const sx2=up?SMX+NR-1:SMX-NR+1;
+  svg.appendChild(el('line',{x1:sx2,y1:cy,x2:sx2,y2:up?cy-LS*3.5:cy+LS*3.5,stroke:'#1A1612','stroke-width':'1.5'}));
 }
 
 // ═══════════════════════════════════════
@@ -334,7 +397,6 @@ function setMode(mode,exo){
   const badge=document.getElementById('level-badge');
   if(exo==='B'){badge.textContent='Niveau '+exoBLevel;badge.classList.add('visible');}else badge.classList.remove('visible');
   closeModePanel();
-  // Forcer un délai pour que l'overlay soit fermé avant le redraw
   setTimeout(()=>{ showChord(currentIndex); updateProgress(); }, 50);
 }
 
@@ -349,7 +411,7 @@ function showChord(index){
 }
 
 // ═══════════════════════════════════════
-// SÉLECTION NOTE (commune A et B)
+// SÉLECTION NOTE
 // ═══════════════════════════════════════
 function selectNote(name){
   if(currentExo==='B'){selectNoteB(name);return;}
@@ -357,7 +419,6 @@ function selectNote(name){
   pushNote(name);
   if(selectedNotes.length===3)validateA();
 }
-
 function pushNote(name){
   selectedNotes.push(name);updateSlots(selectedNotes);
   document.querySelectorAll('.note-btn').forEach(b=>{if(b.textContent===name)b.classList.add('selected');});
@@ -438,190 +499,77 @@ function validateBChord(){
 // ═══════════════════════════════════════
 // RECONNAISSANCE VOCALE
 // ═══════════════════════════════════════
-
-// Reconnaissance en it-IT
-// L'utilisateur dit "note do", "note re", "note sol" etc.
-// Le mot "note" avant chaque nom lève toute ambiguïté grammaticale
-
-const NOTE_WORDS = {
-  // Do — Chrome it-IT confond avec "du", "tu", "dou"
-  'do':'Do','dò':'Do','don':'Do','doh':'Do','du':'Do','tu':'Do','dou':'Do','dù':'Do','dot':'Do','dop':'Do','dof':'Do',
-  // Re
-  're':'Ré','ré':'Ré','rè':'Ré','rée':'Ré',
-  // Mi — Chrome confond avec "mia", "mie", "me"
-  'mi':'Mi','mì':'Mi','mia':'Mi','mie':'Mi','me':'Mi',
-  // Fa
-  'fa':'Fa','fà':'Fa',
-  // Sol — Chrome reconnaît bien "sole" et "sol"
+const NOTE_WORDS={
+  'do':'Do','do\u00f2':'Do','don':'Do','doh':'Do','du':'Do','tu':'Do','dou':'Do','dot':'Do','dop':'Do','dof':'Do',
+  're':'R\u00e9','r\u00e9':'R\u00e9','r\u00e8':'R\u00e9','r\u00e9e':'R\u00e9',
+  'mi':'Mi','m\u00ec':'Mi','mia':'Mi','mie':'Mi','me':'Mi',
+  'fa':'Fa','f\u00e0':'Fa',
   'sol':'Sol','sole':'Sol',
-  // La
-  'la':'La','là':'La',
-  // Si
-  'si':'Si','sì':'Si',
+  'la':'La','l\u00e0':'La',
+  'si':'Si','s\u00ec':'Si',
 };
-
-// Indice affiché pendant l'écoute
-const MIC_HINT = '🎤  "note do"  "note re"  "note sol" …';
-
-let recognition = null;
-let micActive = false;
-let micShouldRestart = false;
-let micAccumulated = [];   // notes accumulées entre sessions
+const MIC_HINT='\uD83C\uDFA4  "note do"  "note re"  "note sol" \u2026';
+let recognition=null,micActive=false,micShouldRestart=false,micAccumulated=[];
 
 function initSpeech(){
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if(!SR){
-    document.getElementById('btn-mic').classList.add('unavailable');
-    document.getElementById('btn-mic').title='Reconnaissance vocale non disponible';
-    return false;
-  }
-  recognition = new SR();
-  recognition.lang = 'it-IT';
-  recognition.continuous = false;
-  recognition.interimResults = true;
-  recognition.maxAlternatives = 5;
-
-  recognition.onstart = () => {
-    micActive = true;
-    document.getElementById('btn-mic').classList.add('listening');
-    if(micAccumulated.length===0) setFeedback('listening', MIC_HINT);
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){document.getElementById('btn-mic').classList.add('unavailable');return false;}
+  recognition=new SR();
+  recognition.lang='it-IT';
+  recognition.continuous=false;
+  recognition.interimResults=true;
+  recognition.maxAlternatives=5;
+  recognition.onstart=()=>{micActive=true;document.getElementById('btn-mic').classList.add('listening');if(micAccumulated.length===0)setFeedback('listening',MIC_HINT);};
+  recognition.onend=()=>{
+    micActive=false;document.getElementById('btn-mic').classList.remove('listening');
+    if(micShouldRestart){const done=(currentExo==='A'&&notesAnswered)||(currentExo==='B'&&(bNotesOk||bAnswered));if(!done){setTimeout(()=>{try{recognition.start();}catch(e){}},120);return;}}
+    const fb=document.getElementById('feedback');if(fb.classList.contains('listening')){fb.textContent='';fb.className='';}
   };
-
-  recognition.onend = () => {
-    micActive = false;
-    document.getElementById('btn-mic').classList.remove('listening');
-    if(micShouldRestart){
-      const done=(currentExo==='A'&&notesAnswered)||(currentExo==='B'&&(bNotesOk||bAnswered));
-      if(!done){ setTimeout(()=>{try{recognition.start();}catch(e){}},120); return; }
-    }
-    const fb=document.getElementById('feedback');
-    if(fb.classList.contains('listening')){fb.textContent='';fb.className='';}
-  };
-
-  recognition.onerror = (e) => {
-    // Erreurs silencieuses — pas de message à l'utilisateur
-    if(e.error==='no-speech'||e.error==='aborted'){
-      micActive=false;
-      if(e.error==='no-speech'&&micShouldRestart){
-        const done=(currentExo==='A'&&notesAnswered)||(currentExo==='B'&&(bNotesOk||bAnswered));
-        if(!done){setTimeout(()=>{try{recognition.start();}catch(x){}},120);return;}
-      }
-      return;
-    }
-    micActive=false; micShouldRestart=false;
-    document.getElementById('btn-mic').classList.remove('listening');
-    const msgs={'not-allowed':'Accès micro refusé','network':'Erreur réseau'};
+  recognition.onerror=(e)=>{
+    if(e.error==='no-speech'||e.error==='aborted'){micActive=false;if(e.error==='no-speech'&&micShouldRestart){const done=(currentExo==='A'&&notesAnswered)||(currentExo==='B'&&(bNotesOk||bAnswered));if(!done){setTimeout(()=>{try{recognition.start();}catch(x){}},120);return;}}return;}
+    micActive=false;micShouldRestart=false;document.getElementById('btn-mic').classList.remove('listening');
+    const msgs={'not-allowed':'Acc\u00e8s micro refus\u00e9','network':'Erreur r\u00e9seau'};
     setFeedback('wrong',msgs[e.error]||'Erreur micro');
-    setTimeout(()=>{
-      const fb=document.getElementById('feedback');
-      if(fb.textContent.includes('micro')||fb.textContent.includes('Accès')){fb.textContent='';fb.className='';}
-    },2500);
+    setTimeout(()=>{const fb=document.getElementById('feedback');if(fb.textContent.includes('micro')||fb.textContent.includes('Acc')){fb.textContent='';fb.className='';}},2500);
   };
-
-  recognition.onresult = (e) => {
-    const allTranscripts=[];
-    for(let r=0;r<e.results.length;r++){
-      for(let a=0;a<e.results[r].length;a++){
-        allTranscripts.push(e.results[r][a].transcript.toLowerCase().trim());
-      }
-    }
+  recognition.onresult=(e)=>{
+    const all=[];
+    for(let r=0;r<e.results.length;r++)for(let a=0;a<e.results[r].length;a++)all.push(e.results[r][a].transcript.toLowerCase().trim());
     let best=[];
-    for(const t of allTranscripts){
-      const notes=extractNotes(t);
-      if(notes.length>best.length)best=notes;
-    }
-
-    // Fusionner avec les notes déjà accumulées
-    for(const n of best){
-      if(!micAccumulated.includes(n)) micAccumulated.push(n);
-    }
-
-    console.log('Accumulated after merge:', JSON.stringify(micAccumulated));
-
-    // Affichage interimaire avec toutes les notes accumulées
-    if(micAccumulated.length>0&&micAccumulated.length<3){
-      const placed=placeOnStaff(micAccumulated).map(n=>n||'·');
-      setFeedback('listening','🎤 '+placed.join(' · ')+' …');
-    }
-
+    for(const t of all){const n=extractNotes(t);if(n.length>best.length)best=n;}
+    for(const n of best)if(!micAccumulated.includes(n))micAccumulated.push(n);
+    if(micAccumulated.length>0&&micAccumulated.length<3){const p=placeOnStaff(micAccumulated).map(n=>n||'\u00b7');setFeedback('listening','\uD83C\uDFA4 '+p.join(' \u00b7 ')+' \u2026');}
     const isFinal=e.results[e.results.length-1].isFinal;
     if(micAccumulated.length>=3||(isFinal&&micAccumulated.length>0)){
-      micShouldRestart=false;
-      const toInject=[...micAccumulated];  // copie avant reset
-      micAccumulated=[];                   // reset immédiat
-      recognition.stop();
-      injectVoiceNotes(toInject);
+      micShouldRestart=false;const toInject=[...micAccumulated];micAccumulated=[];recognition.stop();injectVoiceNotes(toInject);
     }
   };
-
   return true;
 }
 
 function extractNotes(transcript){
-  const found=[];
-  const clean=transcript.replace(/[,.'!?]/g,' ');
-  const tokens=clean.split(/\s+/).filter(Boolean);
-
-  // Log pour debug — visible dans la console Chrome
-  console.log('Transcript:', transcript, '| Tokens:', tokens);
-
-  // Mots déclencheurs — toutes les variantes de "note" en it-IT
-  const TRIGGERS = new Set(['note','notté','notte','not','nota','noter','notes']);
-
-  // Stratégie 1 : chercher déclencheur + nom de note
-  for(let i=0;i<tokens.length;i++){
-    if(TRIGGERS.has(tokens[i])&&i+1<tokens.length){
-      const c=NOTE_WORDS[tokens[i+1]];
-      if(c&&!found.includes(c))found.push(c);
-    }
-  }
-
-  // Stratégie 2 : fallback — chercher les noms seuls si aucun déclencheur
-  if(found.length===0){
-    for(const token of tokens){
-      const c=NOTE_WORDS[token];
-      if(c&&!found.includes(c))found.push(c);
-    }
-  }
-
-  console.log('Detected notes:', found);
+  const found=[],clean=transcript.replace(/[,.'!?]/g,' '),tokens=clean.split(/\s+/).filter(Boolean);
+  const TRIGGERS=new Set(['note','nott\u00e9','notte','not','nota','noter','notes']);
+  for(let i=0;i<tokens.length;i++){if(TRIGGERS.has(tokens[i])&&i+1<tokens.length){const c=NOTE_WORDS[tokens[i+1]];if(c&&!found.includes(c))found.push(c);}}
+  if(found.length===0){for(const t of tokens){const c=NOTE_WORDS[t];if(c&&!found.includes(c))found.push(c);}}
   return found;
 }
-
-function placeOnStaff(detectedNames){
-  const expected=CHORDS[currentIndex].notes.map(n=>n.replace(/\d/,''));
-  return expected.map(exp=>detectedNames.includes(exp)?exp:null);
-}
-
-function injectVoiceNotes(detectedNames){
+function placeOnStaff(det){const exp=CHORDS[currentIndex].notes.map(n=>n.replace(/\d/,''));return exp.map(e=>det.includes(e)?e:null);}
+function injectVoiceNotes(det){
   if(selectedNotes.length>0)resetAnswer();
-  const expected=CHORDS[currentIndex].notes.map(n=>n.replace(/\d/,''));
-  const ordered=expected.filter(exp=>detectedNames.includes(exp));
-  for(const name of ordered){
-    if(selectedNotes.length>=3)break;
-    if(selectedNotes.includes(name))continue;
-    if(currentExo==='B'){if(bNotesOk||bAnswered)break;pushNote(name);}
-    else{if(notesAnswered)break;pushNote(name);}
+  const exp=CHORDS[currentIndex].notes.map(n=>n.replace(/\d/,''));
+  const ord=exp.filter(e=>det.includes(e));
+  for(const name of ord){
+    if(selectedNotes.length>=3)break;if(selectedNotes.includes(name))continue;
+    if(currentExo==='B'){if(bNotesOk||bAnswered)break;pushNote(name);}else{if(notesAnswered)break;pushNote(name);}
   }
-  if(selectedNotes.length===3){
-    if(currentExo==='B')validateBNotes();
-    else validateA();
-  }
+  if(selectedNotes.length===3){if(currentExo==='B')validateBNotes();else validateA();}
 }
-
 function toggleMic(){
   if(!recognition&&!initSpeech())return;
-  if(micShouldRestart||micActive){
-    micShouldRestart=false;recognition.stop();
-    document.getElementById('btn-mic').classList.remove('listening');
-    const fb=document.getElementById('feedback');
-    if(fb.classList.contains('listening')){fb.textContent='';fb.className='';}
-    return;
-  }
-  const done=(currentExo==='A'&&notesAnswered)||(currentExo==='B'&&(bNotesOk||bAnswered));
-  if(done)return;
-  micShouldRestart=true;
-  try{recognition.start();}catch(e){}
+  if(micShouldRestart||micActive){micShouldRestart=false;recognition.stop();document.getElementById('btn-mic').classList.remove('listening');const fb=document.getElementById('feedback');if(fb.classList.contains('listening')){fb.textContent='';fb.className='';}return;}
+  const done=(currentExo==='A'&&notesAnswered)||(currentExo==='B'&&(bNotesOk||bAnswered));if(done)return;
+  micShouldRestart=true;try{recognition.start();}catch(e){}
 }
 
 // ═══════════════════════════════════════
@@ -631,72 +579,40 @@ function checkLevelUp(){
   if(exoBLevel===2)return;
   const total=Object.values(statsB).reduce((s,v)=>s+v.total,0);if(total<21)return;
   const correct=Object.values(statsB).reduce((s,v)=>s+v.correct,0);
-  if(correct/total>=LEVEL2_THRESHOLD){exoBLevel=2;document.getElementById('level-badge').textContent='Niveau 2';showToast('Niveau 2 débloqué — identifie maintenant les inversions !');}
+  if(correct/total>=LEVEL2_THRESHOLD){exoBLevel=2;document.getElementById('level-badge').textContent='Niveau 2';showToast('Niveau 2 d\u00e9bloqu\u00e9 — identifie maintenant les inversions !');}
 }
 function showToast(msg){const t=document.getElementById('level-toast');t.textContent=msg;t.style.display='block';setTimeout(()=>{t.style.display='none';},3500);}
 
 // ═══════════════════════════════════════
-// STATS + PERSISTANCE (localStorage)
+// STATS + PERSISTANCE
 // ═══════════════════════════════════════
-
-// Charger les stats depuis localStorage au démarrage
-function loadStats(){
-  try{
-    const a=localStorage.getItem('chordtonotes_statsA');
-    const b=localStorage.getItem('chordtonotes_statsB');
-    if(a)Object.assign(statsA,JSON.parse(a));
-    if(b)Object.assign(statsB,JSON.parse(b));
-    console.log('Stats chargées — A:',Object.keys(statsA).length,'B:',Object.keys(statsB).length);
-  }catch(e){ console.log('Erreur chargement stats:',e); }
-}
-
-// Sauvegarder les stats dans localStorage
-function saveStats(){
-  try{
-    localStorage.setItem('chordtonotes_statsA',JSON.stringify(statsA));
-    localStorage.setItem('chordtonotes_statsB',JSON.stringify(statsB));
-  }catch(e){ console.log('Erreur sauvegarde stats:',e); }
-}
-
-function recordStat(obj,idx,ok){
-  if(!obj[idx])obj[idx]={correct:0,total:0};
-  obj[idx].total++;
-  if(ok)obj[idx].correct++;
-  saveStats();  // sauvegarde immédiate après chaque réponse
-}
-
-function checkUnlockA(){
-  const t=Object.values(statsA).reduce((s,v)=>s+v.total,0);
-  if(t>=21){const o=document.getElementById('mode-opt-4');if(o)o.classList.remove('disabled-mode');}
-}
-function checkUnlockB(){
-  const t=Object.values(statsB).reduce((s,v)=>s+v.total,0);
-  if(t>=21){const o=document.getElementById('mode-opt-8');if(o)o.classList.remove('disabled-mode');}
-}
+function loadStats(){try{const a=localStorage.getItem('chordtonotes_statsA'),b=localStorage.getItem('chordtonotes_statsB');if(a)Object.assign(statsA,JSON.parse(a));if(b)Object.assign(statsB,JSON.parse(b));}catch(e){}}
+function saveStats(){try{localStorage.setItem('chordtonotes_statsA',JSON.stringify(statsA));localStorage.setItem('chordtonotes_statsB',JSON.stringify(statsB));}catch(e){}}
+function recordStat(obj,idx,ok){if(!obj[idx])obj[idx]={correct:0,total:0};obj[idx].total++;if(ok)obj[idx].correct++;saveStats();}
+function checkUnlockA(){const t=Object.values(statsA).reduce((s,v)=>s+v.total,0);if(t>=21){const o=document.getElementById('mode-opt-4');if(o)o.classList.remove('disabled-mode');}}
+function checkUnlockB(){const t=Object.values(statsB).reduce((s,v)=>s+v.total,0);if(t>=21){const o=document.getElementById('mode-opt-8');if(o)o.classList.remove('disabled-mode');}}
 function openStats(){renderStatsPanel(currentStatsTab);document.getElementById('stats-overlay').classList.add('open');}
 function closeStats(){document.getElementById('stats-overlay').classList.remove('open');}
 function switchStatsTab(tab){currentStatsTab=tab;document.getElementById('tab-a').classList.toggle('active',tab==='A');document.getElementById('tab-b').classList.toggle('active',tab==='B');renderStatsPanel(tab);}
 function renderStatsPanel(tab){
   const st=tab==='A'?statsA:statsB;
-  const total=Object.values(st).reduce((s,v)=>s+v.total,0);
-  const ok=Object.values(st).reduce((s,v)=>s+v.correct,0);
-  const rEl=document.getElementById('global-rate');
-  const cEl=document.getElementById('global-count');
+  const total=Object.values(st).reduce((s,v)=>s+v.total,0),ok=Object.values(st).reduce((s,v)=>s+v.correct,0);
+  const rEl=document.getElementById('global-rate'),cEl=document.getElementById('global-count');
   if(total===0){rEl.textContent='—';rEl.style.color='var(--muted)';}
   else{const p=Math.round(ok/total*100);rEl.textContent=p+'%';rEl.style.color=p>=80?'var(--green)':p>=50?'var(--gold)':'var(--accent)';}
-  cEl.textContent=total+' réponse'+(total>1?'s':'');
+  cEl.textContent=total+' r\u00e9ponse'+(total>1?'s':'');
   const table=document.getElementById('stats-table');table.innerHTML='';
-  if(total===0){const nd=document.createElement('div');nd.className='stat-no-data';nd.textContent='Aucune donnée pour cet exercice.';table.appendChild(nd);return;}
+  if(total===0){const nd=document.createElement('div');nd.className='stat-no-data';nd.textContent='Aucune donn\u00e9e pour cet exercice.';table.appendChild(nd);return;}
   for(let base=0;base<21;base+=3){
     const grp=document.createElement('div');grp.className='stat-chord-group';
     const lbl=document.createElement('div');lbl.className='stat-chord-label';lbl.textContent=CHORDS[base].name;grp.appendChild(lbl);
     for(let inv=0;inv<3;inv++){
-      const idx=base+inv;const s=st[idx]||{correct:0,total:0};
+      const idx=base+inv,s=st[idx]||{correct:0,total:0};
       const row=document.createElement('div');row.className='stat-row';
       const nm=document.createElement('div');nm.className='stat-row-name';nm.textContent=CHORDS[idx].inv;row.appendChild(nm);
       const track=document.createElement('div');track.className='stat-bar-track';
       const fill=document.createElement('div');
-      if(s.total===0){fill.className='stat-bar-fill bar-none';}
+      if(s.total===0)fill.className='stat-bar-fill bar-none';
       else{const p=Math.round(s.correct/s.total*100);fill.className='stat-bar-fill '+(p>=80?'bar-high':p>=50?'bar-mid':'bar-low');fill.style.width=p+'%';}
       track.appendChild(fill);row.appendChild(track);
       const pEl=document.createElement('div');pEl.className='stat-pct';pEl.textContent=s.total===0?'—':Math.round(s.correct/s.total*100)+'%';row.appendChild(pEl);
@@ -707,11 +623,10 @@ function renderStatsPanel(tab){
 }
 function confirmReset(){
   const tab=currentStatsTab;
-  if(!confirm('Réinitialiser les stats de l\'Exercice '+tab+' ?'))return;
+  if(!confirm('R\u00e9initialiser les stats de l\'Exercice '+tab+' ?'))return;
   if(tab==='A'){Object.keys(statsA).forEach(k=>delete statsA[k]);localStorage.removeItem('chordtonotes_statsA');}
   else{Object.keys(statsB).forEach(k=>delete statsB[k]);localStorage.removeItem('chordtonotes_statsB');}
-  saveStats();
-  renderStatsPanel(tab);
+  saveStats();renderStatsPanel(tab);
 }
 
 // ═══════════════════════════════════════
@@ -719,8 +634,7 @@ function confirmReset(){
 // ═══════════════════════════════════════
 function resetAnswer(){
   if(micActive&&recognition)recognition.stop();
-  micAccumulated=[];
-  midiAccumulated=[];
+  micAccumulated=[];midiAccumulated=[];
   selectedNotes=[];notesAnswered=false;bNotesOk=false;bChordChosen=null;bAnswered=false;
   updateSlots([]);
   document.getElementById('feedback').textContent='';document.getElementById('feedback').className='';
@@ -735,138 +649,49 @@ function nextChord(){seqPos=(seqPos+1)%sequence.length;currentIndex=sequence[seq
 function updateProgress(){document.getElementById('progress').textContent=(seqPos+1)+' / '+sequence.length;}
 
 // ═══════════════════════════════════════
+// MODULE MIDI
+// ═══════════════════════════════════════
+let midiAccumulated=[],midiActive=false;
+function midiNoteToName(n){const c={0:'Do',2:'R\u00e9',4:'Mi',5:'Fa',7:'Sol',9:'La',11:'Si'};return c[n%12]||null;}
+function initMIDI(){
+  if(!navigator.requestMIDIAccess){console.log('Web MIDI non disponible');return;}
+  navigator.requestMIDIAccess().then(ma=>{
+    connectMIDIInputs(ma);
+    ma.onstatechange=()=>connectMIDIInputs(ma);
+  },e=>console.log('MIDI refus\u00e9:',e));
+}
+function connectMIDIInputs(ma){
+  let count=0;
+  ma.inputs.forEach(inp=>{inp.onmidimessage=onMIDIMessage;count++;});
+  const st=document.getElementById('midi-status'),lb=document.getElementById('midi-label');
+  if(count>0){midiActive=true;st.classList.add('visible','connected');lb.textContent='Piano connect\u00e9';}
+  else{midiActive=false;st.classList.remove('visible','connected','active');}
+}
+function onMIDIMessage(e){
+  const [st,note,vel]=e.data;
+  if((st&0xF0)!==0x90||vel===0)return;
+  const done=(currentExo==='A'&&notesAnswered)||(currentExo==='B'&&(bNotesOk||bAnswered));
+  if(done)return;
+  const name=midiNoteToName(note);if(!name)return;
+  if(midiAccumulated.includes(name))return;
+  midiAccumulated.push(name);
+  const ms=document.getElementById('midi-status');ms.classList.add('active');setTimeout(()=>ms.classList.remove('active'),300);
+  const placed=placeOnStaff(midiAccumulated).map(n=>n||'\u00b7');
+  setFeedback('listening','\uD83C\uDFB9 '+placed.join(' \u00b7 '));
+  if(midiAccumulated.length>=3){const ti=[...midiAccumulated];midiAccumulated=[];setTimeout(()=>injectVoiceNotes(ti),150);}
+}
+
+// ═══════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════
-document.addEventListener('DOMContentLoaded', ()=>{
-  loadStats();
-  checkUnlockA();  // rétablir les modes adaptatifs si stats déjà suffisantes
-  checkUnlockB();
+document.addEventListener('DOMContentLoaded',()=>{
+  loadStats();checkUnlockA();checkUnlockB();
   sequence=buildSequence(1);seqPos=0;currentIndex=sequence[0];
   document.getElementById('btn-chord-pick').style.opacity='0.4';
   document.getElementById('btn-chord-pick').style.pointerEvents='none';
-  initSpeech();
-  initMIDI();
-  showChord(currentIndex);
-  updateProgress();
+  initSpeech();initMIDI();
+  showChord(currentIndex);updateProgress();
 });
-
-// ═══════════════════════════════════════
-// MODULE MIDI
-// ═══════════════════════════════════════
-
-/*
-  Web MIDI API — fonctionne dans WebMIDI Browser sur iPad
-  et dans Chrome desktop.
-  - Écoute toutes les notes MIDI entrantes (note on, velocity > 0)
-  - Ignore l'octave — seul le nom de la note compte
-  - Accumule les notes dans l'ordre de jeu
-  - Les place dans l'ordre de la portée (comme la voix)
-  - Valide automatiquement quand 3 notes sont jouées
-*/
-
-// Correspondance numéro MIDI → nom de note français
-const MIDI_NOTE_NAMES = ['Do','Ré','Mi','Fa','Sol','La','Si'];
-
-let midiAccumulated = [];   // notes accumulées (sans octave)
-let midiActive = false;     // piano connecté
-
-function midiNoteToName(noteNumber){
-  // noteNumber % 12 donne la classe de hauteur (0=Do, 1=Do#, etc.)
-  // On ne gère que les notes naturelles
-  const classes = {0:'Do',2:'Ré',4:'Mi',5:'Fa',7:'Sol',9:'La',11:'Si'};
-  return classes[noteNumber % 12] || null;
-}
-
-function initMIDI(){
-  if(!navigator.requestMIDIAccess){
-    console.log('Web MIDI API non disponible');
-    return;
-  }
-  navigator.requestMIDIAccess().then(onMIDISuccess, onMIDIFailure);
-}
-
-function onMIDISuccess(midiAccess){
-  console.log('MIDI initialisé');
-  connectMIDIInputs(midiAccess);
-
-  // Écouter les connexions/déconnexions
-  midiAccess.onstatechange = (e) => {
-    console.log('MIDI state change:', e.port.name, e.port.state);
-    connectMIDIInputs(midiAccess);
-  };
-}
-
-function onMIDIFailure(e){
-  console.log('Accès MIDI refusé:', e);
-}
-
-function connectMIDIInputs(midiAccess){
-  const inputs = midiAccess.inputs;
-  let count = 0;
-
-  inputs.forEach(input => {
-    input.onmidimessage = onMIDIMessage;
-    count++;
-    console.log('MIDI input connecté:', input.name);
-  });
-
-  // Mettre à jour l'indicateur visuel
-  const status = document.getElementById('midi-status');
-  const label  = document.getElementById('midi-label');
-  if(count > 0){
-    midiActive = true;
-    status.classList.add('visible','connected');
-    status.classList.remove('active');
-    label.textContent = 'Piano connecté';
-  } else {
-    midiActive = false;
-    status.classList.remove('visible','connected','active');
-  }
-}
-
-function onMIDIMessage(e){
-  const [status, note, velocity] = e.data;
-
-  // Note On (0x90) avec velocity > 0
-  const isNoteOn = (status & 0xF0) === 0x90 && velocity > 0;
-  if(!isNoteOn) return;
-
-  // Ignorer si réponse déjà donnée
-  const done = (currentExo==='A' && notesAnswered) ||
-               (currentExo==='B' && (bNotesOk || bAnswered));
-  if(done) return;
-
-  const noteName = midiNoteToName(note);
-  if(!noteName) return;  // note altérée — ignorée
-
-  // Ne pas ajouter deux fois la même note
-  if(midiAccumulated.includes(noteName)) return;
-
-  midiAccumulated.push(noteName);
-  console.log('MIDI note:', noteName, '| Accumulated:', midiAccumulated);
-
-  // Indicateur visuel actif
-  const status2 = document.getElementById('midi-status');
-  status2.classList.add('active');
-  setTimeout(()=>status2.classList.remove('active'), 300);
-
-  // Placer dans l'ordre de la portée et afficher
-  const placed = placeOnStaff(midiAccumulated).map(n=>n||'·');
-  setFeedback('listening', '🎹 ' + placed.join(' · '));
-
-  // Validation automatique à 3 notes
-  if(midiAccumulated.length >= 3){
-    const toInject = [...midiAccumulated];
-    midiAccumulated = [];
-    setTimeout(()=>injectVoiceNotes(toInject), 150);  // léger délai pour l'affichage
-  }
-}
-
-// Vider l'accumulation MIDI au reset
-const _originalReset = resetAnswer;
-// On surcharge resetAnswer pour vider midiAccumulated aussi
-// (déjà géré dans resetAnswer via micAccumulated — on ajoute midiAccumulated)
-
 </script>
 </body>
 </html>
