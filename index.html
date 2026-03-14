@@ -121,6 +121,20 @@
   /* TOAST */
   #level-toast{display:none;position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);font-family:'Crimson Pro',serif;font-size:16px;font-weight:300;letter-spacing:.06em;padding:12px 28px;border-radius:3px;z-index:200;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.2);}
 
+  /* BOUTON RÉGLAGES */
+  #btn-settings{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink);background:transparent;border:1px solid var(--muted);border-radius:2px;padding:5px 12px;cursor:pointer;touch-action:manipulation;}
+  #btn-settings:hover{border-color:var(--ink);}
+
+  /* PANNEAU RÉGLAGES */
+  #settings-panel{background:var(--bg);border:1px solid var(--ink);border-radius:4px;padding:28px 36px;display:flex;flex-direction:column;gap:20px;width:clamp(300px,50vw,440px);}
+  #settings-panel h2{font-family:'Crimson Pro',serif;font-weight:300;font-size:20px;letter-spacing:.06em;text-align:center;}
+  .setting-row{display:flex;flex-direction:column;gap:8px;}
+  .setting-label{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);}
+  .setting-value{font-family:'Crimson Pro',serif;font-size:22px;font-weight:300;color:var(--ink);text-align:center;}
+  .setting-slider{-webkit-appearance:none;appearance:none;width:100%;height:3px;border-radius:2px;background:rgba(26,22,18,.2);outline:none;cursor:pointer;}
+  .setting-slider::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--ink);cursor:pointer;}
+  .setting-hint{font-family:'Crimson Pro',serif;font-size:13px;font-style:italic;color:var(--muted);text-align:center;}
+
   /* TOGGLE AUTO */
   #toggle-auto{display:flex;align-items:center;gap:6px;cursor:pointer;touch-action:manipulation;user-select:none;}
   #toggle-auto span{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);transition:color .2s;}
@@ -149,6 +163,7 @@
       <span id="toggle-label">Auto</span>
       <div id="toggle-track"><div id="toggle-thumb"></div></div>
     </div>
+    <button id="btn-settings" onclick="openSettings()">⚙</button>
     <button id="btn-stats" onclick="openStats()">Stats</button>
     <button id="btn-mode" onclick="openModePanel()">Mode ▾</button>
   </div>
@@ -190,6 +205,20 @@
     <div id="stats-table"></div>
     <button id="stats-reset" onclick="confirmReset()">Réinitialiser</button>
     <button class="panel-close" onclick="closeStats()">Fermer</button>
+  </div>
+</div>
+
+<!-- OVERLAY RÉGLAGES -->
+<div id="settings-overlay" class="overlay">
+  <div id="settings-panel">
+    <h2>Réglages</h2>
+    <div class="setting-row">
+      <div class="setting-label">Fenêtre de grâce après ✔</div>
+      <div class="setting-value"><span id="grace-val">3</span> sec</div>
+      <input type="range" class="setting-slider" id="grace-slider" min="1" max="10" value="3" step="1" oninput="updateGrace(this.value)">
+      <div class="setting-hint">Temps pendant lequel tu peux rejouer l'accord sans déclencher de validation</div>
+    </div>
+    <button class="panel-close" onclick="closeSettings()">Fermer</button>
   </div>
 </div>
 
@@ -276,6 +305,9 @@ const LEVEL2_THRESHOLD=0.80;
 const statsA={},statsB={};
 let currentStatsTab='A';
 let autoAdvance=false;
+let gracePeriod=3000;  // ms — réglable
+let graceTimer=null;  // timer actif après une bonne réponse
+let inGrace=false;    // true = ignorer MIDI/voix
 
 // ═══════════════════════════════════════
 // GRAND STAFF — RENDU
@@ -284,12 +316,11 @@ const SVG_W=680, SVG_H=380, LS=18, NR=9;
 const SX=78, SX2=630, SMX=(SX+SX2)/2;
 
 // Portée de Sol : ligne 1 (Mi4) à Y=120
-const Y_G1 = 120;   // Mi4 = ligne 1 clé de Sol
+const Y_G1 = 148;   // Mi4 = ligne 1 clé de Sol — décalé pour laisser place aux notes hautes
 function noteY(i){ return Y_G1 - i*(LS/2); }
-// noteY(1)=120, noteY(3)=102, noteY(5)=84, noteY(7)=66, noteY(9)=48
 
-// Portée de Fa : ligne 1 à Y=280
-const Y_F1 = 280;
+// Portée de Fa : ligne 1 à Y=308 (même écart de 160px)
+const Y_F1 = 308;
 function noteFaY(i){ return Y_F1 - i*(LS/2); }
 // Fa : indices 0=Si2, 1=La2(ligne1), 2=Sol2, 3=Fa2(ligne2)...
 
@@ -448,7 +479,10 @@ function validateA(){
   setFeedback(ok?'correct':'wrong',ok?'✔ Correct !':'✘  '+exp.join(' · '));
   recordStat(statsA,currentIndex,ok);checkUnlockA();
   document.querySelectorAll('.note-btn').forEach(b=>b.disabled=true);
-  if(ok&&autoAdvance) setTimeout(()=>nextChord(),800);
+  if(ok){
+    startGrace();
+    if(autoAdvance) setTimeout(()=>{ if(!inGrace) return; endGrace(); nextChord(); }, gracePeriod+800);
+  }
 }
 
 // ═══════════════════════════════════════
@@ -509,7 +543,10 @@ function validateBChord(){
   document.getElementById('chord-title').textContent='Accord de '+chord.name;
   document.getElementById('inversion-label').textContent=chord.inv;
   recordStat(statsB,currentIndex,ok);checkUnlockB();checkLevelUp();
-  if(ok&&autoAdvance) setTimeout(()=>nextChord(),800);
+  if(ok){
+    startGrace();
+    if(autoAdvance) setTimeout(()=>{ if(!inGrace) return; endGrace(); nextChord(); }, gracePeriod+800);
+  }
 }
 
 // ═══════════════════════════════════════
@@ -646,6 +683,16 @@ function confirmReset(){
 }
 
 // ═══════════════════════════════════════
+// RÉGLAGES
+// ═══════════════════════════════════════
+function openSettings(){ document.getElementById('settings-overlay').classList.add('open'); }
+function closeSettings(){ document.getElementById('settings-overlay').classList.remove('open'); }
+function updateGrace(val){
+  gracePeriod = val * 1000;
+  document.getElementById('grace-val').textContent = val;
+}
+
+// ═══════════════════════════════════════
 // AUTO-AVANCE
 // ═══════════════════════════════════════
 function toggleAuto(){
@@ -657,8 +704,19 @@ function toggleAuto(){
 // ═══════════════════════════════════════
 // NAVIGATION
 // ═══════════════════════════════════════
+function startGrace(){
+  inGrace=true;
+  if(graceTimer) clearTimeout(graceTimer);
+  graceTimer=setTimeout(()=>{ inGrace=false; graceTimer=null; }, gracePeriod);
+}
+function endGrace(){
+  inGrace=false;
+  if(graceTimer){ clearTimeout(graceTimer); graceTimer=null; }
+}
+
 function resetAnswer(){
   if(micActive&&recognition)recognition.stop();
+  endGrace();
   micAccumulated=[];midiAccumulated=[];
   selectedNotes=[];notesAnswered=false;bNotesOk=false;bChordChosen=null;bAnswered=false;
   updateSlots([]);
@@ -695,6 +753,7 @@ function connectMIDIInputs(ma){
 function onMIDIMessage(e){
   const [st,note,vel]=e.data;
   if((st&0xF0)!==0x90||vel===0)return;
+  if(inGrace)return;  // fenetre de grace — rejouer sans valider
   const done=(currentExo==='A'&&notesAnswered)||(currentExo==='B'&&(bNotesOk||bAnswered));
   if(done)return;
   const name=midiNoteToName(note);if(!name)return;
