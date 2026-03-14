@@ -210,9 +210,7 @@
     <h2>Réglages</h2>
     <div class="setting-row">
       <div class="setting-label">Fenêtre de grâce après ✔</div>
-      <div class="setting-value"><span id="grace-val">3</span> sec</div>
-      <input type="range" class="setting-slider" id="grace-slider" min="1" max="10" value="3" step="1" oninput="updateGrace(this.value)">
-      <div class="setting-hint">Temps pendant lequel tu peux rejouer l'accord sans déclencher de validation</div>
+      <div class="setting-hint">Réglable via le curseur à côté du bouton Auto (activer Auto d'abord)</div>
     </div>
     <button class="panel-close" onclick="closeSettings()">Fermer</button>
   </div>
@@ -704,11 +702,7 @@ function openSettings(){ document.getElementById('settings-overlay').classList.a
 function closeSettings(){ document.getElementById('settings-overlay').classList.remove('open'); }
 function updateGrace(val){
   gracePeriod = val * 1000;
-  document.getElementById('grace-val').textContent = val;
   document.getElementById('grace-val-inline').textContent = val+'s';
-  // Synchroniser les deux curseurs
-  document.getElementById('grace-slider').value = val;
-  document.getElementById('grace-slider-inline').value = val;
 }
 
 // ═══════════════════════════════════════
