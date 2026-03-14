@@ -420,7 +420,7 @@ function validateBChord(){
 
 const NOTE_WORDS = {
   // Do — Chrome it-IT confond avec "du", "tu", "dou"
-  'do':'Do','dò':'Do','don':'Do','doh':'Do','du':'Do','tu':'Do','dou':'Do','dù':'Do',
+  'do':'Do','dò':'Do','don':'Do','doh':'Do','du':'Do','tu':'Do','dou':'Do','dù':'Do','dot':'Do','dop':'Do','dof':'Do',
   // Re
   're':'Ré','ré':'Ré','rè':'Ré','rée':'Ré',
   // Mi — Chrome confond avec "mia", "mie", "me"
@@ -511,7 +511,7 @@ function initSpeech(){
       if(!micAccumulated.includes(n)) micAccumulated.push(n);
     }
 
-    console.log('Accumulated:', micAccumulated);
+    console.log('Accumulated after merge:', JSON.stringify(micAccumulated));
 
     // Affichage interimaire avec toutes les notes accumulées
     if(micAccumulated.length>0&&micAccumulated.length<3){
@@ -522,9 +522,10 @@ function initSpeech(){
     const isFinal=e.results[e.results.length-1].isFinal;
     if(micAccumulated.length>=3||(isFinal&&micAccumulated.length>0)){
       micShouldRestart=false;
+      const toInject=[...micAccumulated];  // copie avant reset
+      micAccumulated=[];                   // reset immédiat
       recognition.stop();
-      injectVoiceNotes(micAccumulated);
-      micAccumulated=[];  // reset pour le prochain accord
+      injectVoiceNotes(toInject);
     }
   };
 
