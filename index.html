@@ -159,10 +159,6 @@
   <div id="mode-indicator">Mode 1 — Séquentiel · Exo A</div>
   <div id="level-badge">Niveau 2</div>
   <div id="topbar-right">
-    <div id="toggle-auto" onclick="toggleAuto()" title="Passage automatique si correct">
-      <span id="toggle-label">Auto</span>
-      <div id="toggle-track"><div id="toggle-thumb"></div></div>
-    </div>
     <button id="btn-settings" onclick="openSettings()">⚙</button>
     <button id="btn-stats" onclick="openStats()">Stats</button>
     <button id="btn-mode" onclick="openModePanel()">Mode ▾</button>
@@ -260,6 +256,14 @@
   <div id="controls">
     <button class="btn secondary" onclick="resetAnswer()">Effacer</button>
     <button class="btn" onclick="nextChord()">Suivant ▶</button>
+    <div id="toggle-auto" onclick="toggleAuto()" title="Passage automatique si correct">
+      <div id="toggle-track"><div id="toggle-thumb"></div></div>
+      <span id="toggle-label">Auto</span>
+    </div>
+    <div id="grace-inline" style="display:none;align-items:center;gap:6px;">
+      <input type="range" class="setting-slider" id="grace-slider-inline" min="1" max="10" value="3" step="1" style="width:80px;" oninput="updateGrace(this.value)">
+      <span id="grace-val-inline" style="font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);">3s</span>
+    </div>
   </div>
 </div>
 
@@ -460,9 +464,17 @@ function showChord(index){
 // ═══════════════════════════════════════
 function selectNote(name){
   if(currentExo==='B'){selectNoteB(name);return;}
-  if(notesAnswered||selectedNotes.includes(name)||selectedNotes.length>=3)return;
+  if(notesAnswered)return;
+  // Déselectionner si déjà choisie
+  if(selectedNotes.includes(name)){ removeNote(name); return; }
+  if(selectedNotes.length>=3)return;
   pushNote(name);
   if(selectedNotes.length===3)validateA();
+}
+function removeNote(name){
+  selectedNotes=selectedNotes.filter(n=>n!==name);
+  updateSlots(selectedNotes);
+  document.querySelectorAll('.note-btn').forEach(b=>{if(b.textContent===name)b.classList.remove('selected');});
 }
 function pushNote(name){
   selectedNotes.push(name);updateSlots(selectedNotes);
@@ -489,7 +501,10 @@ function validateA(){
 // EXERCICE B
 // ═══════════════════════════════════════
 function selectNoteB(name){
-  if(bNotesOk||bAnswered||selectedNotes.includes(name)||selectedNotes.length>=3)return;
+  if(bNotesOk||bAnswered)return;
+  // Déselectionner si déjà choisie
+  if(selectedNotes.includes(name)){ removeNote(name); return; }
+  if(selectedNotes.length>=3)return;
   pushNote(name);
   if(selectedNotes.length===3)validateBNotes();
 }
@@ -690,6 +705,10 @@ function closeSettings(){ document.getElementById('settings-overlay').classList.
 function updateGrace(val){
   gracePeriod = val * 1000;
   document.getElementById('grace-val').textContent = val;
+  document.getElementById('grace-val-inline').textContent = val+'s';
+  // Synchroniser les deux curseurs
+  document.getElementById('grace-slider').value = val;
+  document.getElementById('grace-slider-inline').value = val;
 }
 
 // ═══════════════════════════════════════
@@ -697,8 +716,9 @@ function updateGrace(val){
 // ═══════════════════════════════════════
 function toggleAuto(){
   autoAdvance=!autoAdvance;
-  const el=document.getElementById('toggle-auto');
-  el.classList.toggle('on',autoAdvance);
+  document.getElementById('toggle-auto').classList.toggle('on',autoAdvance);
+  const gi=document.getElementById('grace-inline');
+  gi.style.display=autoAdvance?'flex':'none';
 }
 
 // ═══════════════════════════════════════
