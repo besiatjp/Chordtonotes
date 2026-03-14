@@ -120,6 +120,23 @@
 
   /* TOAST */
   #level-toast{display:none;position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);font-family:'Crimson Pro',serif;font-size:16px;font-weight:300;letter-spacing:.06em;padding:12px 28px;border-radius:3px;z-index:200;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.2);}
+
+  /* MIDI */
+  #midi-status{
+    position:fixed;bottom:12px;left:50%;transform:translateX(-50%);
+    font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--muted);
+    display:flex;align-items:center;gap:6px;
+    opacity:0;transition:opacity .4s;
+    pointer-events:none;
+  }
+  #midi-status.visible{opacity:1;}
+  #midi-dot{
+    width:6px;height:6px;border-radius:50%;
+    background:var(--muted);transition:background .3s;
+  }
+  #midi-status.connected #midi-dot{background:var(--green);}
+  #midi-status.active #midi-dot{background:var(--accent);animation:pulse 0.4s ease;}
 </style>
 </head>
 <body>
@@ -175,6 +192,12 @@
 
 <!-- TOAST -->
 <div id="level-toast"></div>
+
+<!-- MIDI STATUS -->
+<div id="midi-status">
+  <div id="midi-dot"></div>
+  <span id="midi-label">Piano connecté</span>
+</div>
 
 <!-- APP -->
 <div id="app">
@@ -662,6 +685,7 @@ function confirmReset(){
 function resetAnswer(){
   if(micActive&&recognition)recognition.stop();
   micAccumulated=[];
+  midiAccumulated=[];
   selectedNotes=[];notesAnswered=false;bNotesOk=false;bChordChosen=null;bAnswered=false;
   updateSlots([]);
   document.getElementById('feedback').textContent='';document.getElementById('feedback').className='';
@@ -683,6 +707,126 @@ document.getElementById('btn-chord-pick').style.opacity='0.4';
 document.getElementById('btn-chord-pick').style.pointerEvents='none';
 initSpeech();
 showChord(currentIndex);updateProgress();
+
+// ═══════════════════════════════════════
+// MODULE MIDI
+// ═══════════════════════════════════════
+
+/*
+  Web MIDI API — fonctionne dans WebMIDI Browser sur iPad
+  et dans Chrome desktop.
+  - Écoute toutes les notes MIDI entrantes (note on, velocity > 0)
+  - Ignore l'octave — seul le nom de la note compte
+  - Accumule les notes dans l'ordre de jeu
+  - Les place dans l'ordre de la portée (comme la voix)
+  - Valide automatiquement quand 3 notes sont jouées
+*/
+
+// Correspondance numéro MIDI → nom de note français
+const MIDI_NOTE_NAMES = ['Do','Ré','Mi','Fa','Sol','La','Si'];
+
+let midiAccumulated = [];   // notes accumulées (sans octave)
+let midiActive = false;     // piano connecté
+
+function midiNoteToName(noteNumber){
+  // noteNumber % 12 donne la classe de hauteur (0=Do, 1=Do#, etc.)
+  // On ne gère que les notes naturelles
+  const classes = {0:'Do',2:'Ré',4:'Mi',5:'Fa',7:'Sol',9:'La',11:'Si'};
+  return classes[noteNumber % 12] || null;
+}
+
+function initMIDI(){
+  if(!navigator.requestMIDIAccess){
+    console.log('Web MIDI API non disponible');
+    return;
+  }
+  navigator.requestMIDIAccess().then(onMIDISuccess, onMIDIFailure);
+}
+
+function onMIDISuccess(midiAccess){
+  console.log('MIDI initialisé');
+  connectMIDIInputs(midiAccess);
+
+  // Écouter les connexions/déconnexions
+  midiAccess.onstatechange = (e) => {
+    console.log('MIDI state change:', e.port.name, e.port.state);
+    connectMIDIInputs(midiAccess);
+  };
+}
+
+function onMIDIFailure(e){
+  console.log('Accès MIDI refusé:', e);
+}
+
+function connectMIDIInputs(midiAccess){
+  const inputs = midiAccess.inputs;
+  let count = 0;
+
+  inputs.forEach(input => {
+    input.onmidimessage = onMIDIMessage;
+    count++;
+    console.log('MIDI input connecté:', input.name);
+  });
+
+  // Mettre à jour l'indicateur visuel
+  const status = document.getElementById('midi-status');
+  const label  = document.getElementById('midi-label');
+  if(count > 0){
+    midiActive = true;
+    status.classList.add('visible','connected');
+    status.classList.remove('active');
+    label.textContent = 'Piano connecté';
+  } else {
+    midiActive = false;
+    status.classList.remove('visible','connected','active');
+  }
+}
+
+function onMIDIMessage(e){
+  const [status, note, velocity] = e.data;
+
+  // Note On (0x90) avec velocity > 0
+  const isNoteOn = (status & 0xF0) === 0x90 && velocity > 0;
+  if(!isNoteOn) return;
+
+  // Ignorer si réponse déjà donnée
+  const done = (currentExo==='A' && notesAnswered) ||
+               (currentExo==='B' && (bNotesOk || bAnswered));
+  if(done) return;
+
+  const noteName = midiNoteToName(note);
+  if(!noteName) return;  // note altérée — ignorée
+
+  // Ne pas ajouter deux fois la même note
+  if(midiAccumulated.includes(noteName)) return;
+
+  midiAccumulated.push(noteName);
+  console.log('MIDI note:', noteName, '| Accumulated:', midiAccumulated);
+
+  // Indicateur visuel actif
+  const status2 = document.getElementById('midi-status');
+  status2.classList.add('active');
+  setTimeout(()=>status2.classList.remove('active'), 300);
+
+  // Placer dans l'ordre de la portée et afficher
+  const placed = placeOnStaff(midiAccumulated).map(n=>n||'·');
+  setFeedback('listening', '🎹 ' + placed.join(' · '));
+
+  // Validation automatique à 3 notes
+  if(midiAccumulated.length >= 3){
+    const toInject = [...midiAccumulated];
+    midiAccumulated = [];
+    setTimeout(()=>injectVoiceNotes(toInject), 150);  // léger délai pour l'affichage
+  }
+}
+
+// Vider l'accumulation MIDI au reset
+const _originalReset = resetAnswer;
+// On surcharge resetAnswer pour vider midiAccumulated aussi
+// (déjà géré dans resetAnswer via micAccumulated — on ajoute midiAccumulated)
+
+// Init MIDI au démarrage
+initMIDI();
 </script>
 </body>
 </html>
