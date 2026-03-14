@@ -441,6 +441,7 @@ const MIC_HINT = '🎤  "note do"  "note re"  "note sol" …';
 let recognition = null;
 let micActive = false;
 let micShouldRestart = false;
+let micAccumulated = [];   // notes accumulées entre sessions
 
 function initSpeech(){
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -458,7 +459,7 @@ function initSpeech(){
   recognition.onstart = () => {
     micActive = true;
     document.getElementById('btn-mic').classList.add('listening');
-    setFeedback('listening', MIC_HINT);
+    if(micAccumulated.length===0) setFeedback('listening', MIC_HINT);
   };
 
   recognition.onend = () => {
@@ -504,16 +505,26 @@ function initSpeech(){
       const notes=extractNotes(t);
       if(notes.length>best.length)best=notes;
     }
-    // Affichage interimaire
-    if(best.length>0&&best.length<3){
-      const placed=placeOnStaff(best).map(n=>n||'·');
+
+    // Fusionner avec les notes déjà accumulées
+    for(const n of best){
+      if(!micAccumulated.includes(n)) micAccumulated.push(n);
+    }
+
+    console.log('Accumulated:', micAccumulated);
+
+    // Affichage interimaire avec toutes les notes accumulées
+    if(micAccumulated.length>0&&micAccumulated.length<3){
+      const placed=placeOnStaff(micAccumulated).map(n=>n||'·');
       setFeedback('listening','🎤 '+placed.join(' · ')+' …');
     }
+
     const isFinal=e.results[e.results.length-1].isFinal;
-    if(best.length>=3||(isFinal&&best.length>0)){
+    if(micAccumulated.length>=3||(isFinal&&micAccumulated.length>0)){
       micShouldRestart=false;
       recognition.stop();
-      injectVoiceNotes(best);
+      injectVoiceNotes(micAccumulated);
+      micAccumulated=[];  // reset pour le prochain accord
     }
   };
 
@@ -649,6 +660,7 @@ function confirmReset(){
 // ═══════════════════════════════════════
 function resetAnswer(){
   if(micActive&&recognition)recognition.stop();
+  micAccumulated=[];
   selectedNotes=[];notesAnswered=false;bNotesOk=false;bChordChosen=null;bAnswered=false;
   updateSlots([]);
   document.getElementById('feedback').textContent='';document.getElementById('feedback').className='';
