@@ -333,7 +333,9 @@ function setMode(mode,exo){
   document.getElementById('chord-answer-zone').classList.toggle('visible',exo==='B');
   const badge=document.getElementById('level-badge');
   if(exo==='B'){badge.textContent='Niveau '+exoBLevel;badge.classList.add('visible');}else badge.classList.remove('visible');
-  closeModePanel();showChord(currentIndex);updateProgress();
+  closeModePanel();
+  // Forcer un délai pour que l'overlay soit fermé avant le redraw
+  setTimeout(()=>{ showChord(currentIndex); updateProgress(); }, 50);
 }
 
 // ═══════════════════════════════════════
