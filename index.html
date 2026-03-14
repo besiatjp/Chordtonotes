@@ -121,6 +121,15 @@
   /* TOAST */
   #level-toast{display:none;position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);font-family:'Crimson Pro',serif;font-size:16px;font-weight:300;letter-spacing:.06em;padding:12px 28px;border-radius:3px;z-index:200;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.2);}
 
+  /* TOGGLE AUTO */
+  #toggle-auto{display:flex;align-items:center;gap:6px;cursor:pointer;touch-action:manipulation;user-select:none;}
+  #toggle-auto span{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);transition:color .2s;}
+  #toggle-track{width:32px;height:18px;border-radius:9px;border:1.5px solid var(--muted);background:transparent;position:relative;transition:border-color .2s,background .2s;flex-shrink:0;}
+  #toggle-thumb{position:absolute;top:2px;left:2px;width:10px;height:10px;border-radius:50%;background:var(--muted);transition:transform .2s,background .2s;}
+  #toggle-auto.on span{color:var(--ink);}
+  #toggle-auto.on #toggle-track{border-color:var(--ink);background:var(--ink);}
+  #toggle-auto.on #toggle-thumb{transform:translateX(14px);background:var(--bg);}
+
   /* MIDI */
   #midi-status{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:6px;opacity:0;transition:opacity .4s;pointer-events:none;}
   #midi-status.visible{opacity:1;}
@@ -136,6 +145,10 @@
   <div id="mode-indicator">Mode 1 — Séquentiel · Exo A</div>
   <div id="level-badge">Niveau 2</div>
   <div id="topbar-right">
+    <div id="toggle-auto" onclick="toggleAuto()" title="Passage automatique si correct">
+      <span id="toggle-label">Auto</span>
+      <div id="toggle-track"><div id="toggle-thumb"></div></div>
+    </div>
     <button id="btn-stats" onclick="openStats()">Stats</button>
     <button id="btn-mode" onclick="openModePanel()">Mode ▾</button>
   </div>
@@ -262,6 +275,7 @@ let exoBLevel=1;
 const LEVEL2_THRESHOLD=0.80;
 const statsA={},statsB={};
 let currentStatsTab='A';
+let autoAdvance=false;
 
 // ═══════════════════════════════════════
 // GRAND STAFF — RENDU
@@ -434,6 +448,7 @@ function validateA(){
   setFeedback(ok?'correct':'wrong',ok?'✔ Correct !':'✘  '+exp.join(' · '));
   recordStat(statsA,currentIndex,ok);checkUnlockA();
   document.querySelectorAll('.note-btn').forEach(b=>b.disabled=true);
+  if(ok&&autoAdvance) setTimeout(()=>nextChord(),800);
 }
 
 // ═══════════════════════════════════════
@@ -494,6 +509,7 @@ function validateBChord(){
   document.getElementById('chord-title').textContent='Accord de '+chord.name;
   document.getElementById('inversion-label').textContent=chord.inv;
   recordStat(statsB,currentIndex,ok);checkUnlockB();checkLevelUp();
+  if(ok&&autoAdvance) setTimeout(()=>nextChord(),800);
 }
 
 // ═══════════════════════════════════════
@@ -627,6 +643,15 @@ function confirmReset(){
   if(tab==='A'){Object.keys(statsA).forEach(k=>delete statsA[k]);localStorage.removeItem('chordtonotes_statsA');}
   else{Object.keys(statsB).forEach(k=>delete statsB[k]);localStorage.removeItem('chordtonotes_statsB');}
   saveStats();renderStatsPanel(tab);
+}
+
+// ═══════════════════════════════════════
+// AUTO-AVANCE
+// ═══════════════════════════════════════
+function toggleAuto(){
+  autoAdvance=!autoAdvance;
+  const el=document.getElementById('toggle-auto');
+  el.classList.toggle('on',autoAdvance);
 }
 
 // ═══════════════════════════════════════
