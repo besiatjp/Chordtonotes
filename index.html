@@ -636,11 +636,43 @@ function checkLevelUp(){
 function showToast(msg){const t=document.getElementById('level-toast');t.textContent=msg;t.style.display='block';setTimeout(()=>{t.style.display='none';},3500);}
 
 // ═══════════════════════════════════════
-// STATS
+// STATS + PERSISTANCE (localStorage)
 // ═══════════════════════════════════════
-function recordStat(obj,idx,ok){if(!obj[idx])obj[idx]={correct:0,total:0};obj[idx].total++;if(ok)obj[idx].correct++;}
-function checkUnlockA(){const t=Object.values(statsA).reduce((s,v)=>s+v.total,0);if(t>=21){const o=document.getElementById('mode-opt-4');if(o)o.classList.remove('disabled-mode');}}
-function checkUnlockB(){const t=Object.values(statsB).reduce((s,v)=>s+v.total,0);if(t>=21){const o=document.getElementById('mode-opt-8');if(o)o.classList.remove('disabled-mode');}}
+
+// Charger les stats depuis localStorage au démarrage
+function loadStats(){
+  try{
+    const a=localStorage.getItem('chordtonotes_statsA');
+    const b=localStorage.getItem('chordtonotes_statsB');
+    if(a)Object.assign(statsA,JSON.parse(a));
+    if(b)Object.assign(statsB,JSON.parse(b));
+    console.log('Stats chargées — A:',Object.keys(statsA).length,'B:',Object.keys(statsB).length);
+  }catch(e){ console.log('Erreur chargement stats:',e); }
+}
+
+// Sauvegarder les stats dans localStorage
+function saveStats(){
+  try{
+    localStorage.setItem('chordtonotes_statsA',JSON.stringify(statsA));
+    localStorage.setItem('chordtonotes_statsB',JSON.stringify(statsB));
+  }catch(e){ console.log('Erreur sauvegarde stats:',e); }
+}
+
+function recordStat(obj,idx,ok){
+  if(!obj[idx])obj[idx]={correct:0,total:0};
+  obj[idx].total++;
+  if(ok)obj[idx].correct++;
+  saveStats();  // sauvegarde immédiate après chaque réponse
+}
+
+function checkUnlockA(){
+  const t=Object.values(statsA).reduce((s,v)=>s+v.total,0);
+  if(t>=21){const o=document.getElementById('mode-opt-4');if(o)o.classList.remove('disabled-mode');}
+}
+function checkUnlockB(){
+  const t=Object.values(statsB).reduce((s,v)=>s+v.total,0);
+  if(t>=21){const o=document.getElementById('mode-opt-8');if(o)o.classList.remove('disabled-mode');}
+}
 function openStats(){renderStatsPanel(currentStatsTab);document.getElementById('stats-overlay').classList.add('open');}
 function closeStats(){document.getElementById('stats-overlay').classList.remove('open');}
 function switchStatsTab(tab){currentStatsTab=tab;document.getElementById('tab-a').classList.toggle('active',tab==='A');document.getElementById('tab-b').classList.toggle('active',tab==='B');renderStatsPanel(tab);}
@@ -676,8 +708,9 @@ function renderStatsPanel(tab){
 function confirmReset(){
   const tab=currentStatsTab;
   if(!confirm('Réinitialiser les stats de l\'Exercice '+tab+' ?'))return;
-  if(tab==='A')Object.keys(statsA).forEach(k=>delete statsA[k]);
-  else Object.keys(statsB).forEach(k=>delete statsB[k]);
+  if(tab==='A'){Object.keys(statsA).forEach(k=>delete statsA[k]);localStorage.removeItem('chordtonotes_statsA');}
+  else{Object.keys(statsB).forEach(k=>delete statsB[k]);localStorage.removeItem('chordtonotes_statsB');}
+  saveStats();
   renderStatsPanel(tab);
 }
 
@@ -705,6 +738,9 @@ function updateProgress(){document.getElementById('progress').textContent=(seqPo
 // INIT
 // ═══════════════════════════════════════
 document.addEventListener('DOMContentLoaded', ()=>{
+  loadStats();
+  checkUnlockA();  // rétablir les modes adaptatifs si stats déjà suffisantes
+  checkUnlockB();
   sequence=buildSequence(1);seqPos=0;currentIndex=sequence[0];
   document.getElementById('btn-chord-pick').style.opacity='0.4';
   document.getElementById('btn-chord-pick').style.pointerEvents='none';
