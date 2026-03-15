@@ -141,7 +141,6 @@
   #midi-status.connected #midi-dot{background:var(--green);}
   #midi-status.active #midi-dot{background:var(--accent);animation:pulse 0.4s ease;}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"></script>
 </head>
 <body>
 
@@ -243,6 +242,7 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"></script>
 <script>
 // ═══════════════════════════════════════
 // DONNÉES
@@ -787,9 +787,10 @@ function noteToTone(noteName){
 
 function initAudio(){
   if(audioReady) return Promise.resolve();
+  if(typeof Tone === 'undefined') return Promise.reject('Tone not loaded');
 
   // Salamander Grand Piano — samples hébergés sur jsDelivr
-  const baseUrl = 'https://gleitz.github.io/midi-js-soundfonts/MusyngKite/acoustic_grand_piano-mp3/';
+  const baseUrl = 'https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/acoustic_grand_piano-mp3/';
 
   piano = new Tone.Sampler({
     urls: {
@@ -811,9 +812,8 @@ function initAudio(){
 }
 
 async function playChord(notes){
-  // notes = tableau de noms français avec octave ex: ['Do4','Mi4','Sol4']
-  if(midiActive) return;  // piano branché — pas de synthèse
-
+  if(midiActive) return;
+  if(typeof Tone === 'undefined') return;  // Tone.js pas encore chargé
   await initAudio();
   if(!audioReady){ console.log('Audio pas encore prêt'); return; }
 
@@ -832,7 +832,7 @@ async function playChord(notes){
 // ═══════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════
-document.addEventListener('DOMContentLoaded',()=>{
+window.addEventListener('load',()=>{
   loadStats();checkUnlockA();checkUnlockB();
   sequence=buildSequence(1);seqPos=0;currentIndex=sequence[0];
   document.getElementById('btn-chord-pick').style.opacity='0.4';
