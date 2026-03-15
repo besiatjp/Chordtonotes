@@ -762,12 +762,12 @@ function resetAnswer(){
 function setFeedback(cls,msg){const fb=document.getElementById('feedback');fb.textContent=msg;fb.className=cls;}
 function updateSlots(arr){['slot-0','slot-1','slot-2'].forEach((id,i)=>{const e=document.getElementById(id);if(arr[i]){e.textContent=arr[i];e.classList.add('filled');}else{e.textContent='—';e.classList.remove('filled');}});}
 function nextChord(){
-  // Vérifier si on arrive à la fin de la série
-  if(seqPos===sequence.length-1){
+  seqPos++;
+  // Fin de série
+  if(seqPos>=sequence.length){
     showEndOverlay();
     return;
   }
-  seqPos=(seqPos+1)%sequence.length;
   currentIndex=sequence[seqPos];
   updateProgress();
   showChord(currentIndex);
