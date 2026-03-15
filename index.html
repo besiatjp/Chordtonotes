@@ -758,19 +758,28 @@ function onMIDIMessage(e){
 }
 
 // ═══════════════════════════════════════
-// MODULE AUDIO — Web Audio API natif
+// MODULE AUDIO — Samples MP3 locaux
 // ═══════════════════════════════════════
 
 /*
-  Synthèse audio sans dépendance externe
-  Piano simulé avec oscillateurs + enveloppe ADSR
-  Arpège 80ms entre notes, tenue 1.5s
+  Charge les samples MP3 MusyngKite depuis /sounds/ du repo
+  Tone.Sampler interpole entre les notes échantillonnées
+  Arpège 80ms entre notes, tenue 2s
   Actif seulement si midiActive===false
 */
 
 let audioCtx = null;
+let audioBuffers = {};  // cache des buffers décodés
+let audioReady = false;
 
-// Fréquences des notes (Hz) — tempérament égal
+// Notes disponibles dans /sounds/ et leurs fréquences de référence
+const SAMPLES = {
+  'A0': 27.50, 'C2': 65.41, 'A2': 110.00, 'C3': 130.81,
+  'A3': 220.00, 'C4': 261.63, 'A4': 440.00, 'C5': 523.25,
+  'A5': 880.00, 'C6': 1046.50, 'A6': 1760.00, 'C7': 2093.00
+};
+
+// Fréquences exactes de nos notes
 const NOTE_FREQ = {
   'Do4':261.63,'Ré4':293.66,'Mi4':329.63,'Fa4':349.23,
   'Sol4':392.00,'La4':440.00,'Si4':493.88,
@@ -779,58 +788,71 @@ const NOTE_FREQ = {
   'Do6':1046.50,'Ré6':1174.66
 };
 
+const SOUNDS_URL = 'https://besiatjp.github.io/Chordtonotes/sounds/';
+
 function getAudioCtx(){
   if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   if(audioCtx.state === 'suspended') audioCtx.resume();
   return audioCtx;
 }
 
-function playNote(freq, startTime, duration){
+async function loadSamples(){
+  if(audioReady) return;
   const ctx = getAudioCtx();
-
-  // Oscillateur principal (onde triangle — plus douce)
-  const osc = ctx.createOscillator();
-  osc.type = 'triangle';
-  osc.frequency.setValueAtTime(freq, startTime);
-
-  // Harmonique légère pour richesse
-  const osc2 = ctx.createOscillator();
-  osc2.type = 'sine';
-  osc2.frequency.setValueAtTime(freq * 2, startTime);
-
-  // Enveloppe ADSR
-  const gain = ctx.createGain();
-  gain.gain.setValueAtTime(0, startTime);
-  gain.gain.linearRampToValueAtTime(0.35, startTime + 0.01);   // Attack
-  gain.gain.exponentialRampToValueAtTime(0.18, startTime + 0.1); // Decay
-  gain.gain.setValueAtTime(0.18, startTime + duration - 0.15);   // Sustain
-  gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration); // Release
-
-  const gain2 = ctx.createGain();
-  gain2.gain.setValueAtTime(0.08, startTime);
-  gain2.gain.exponentialRampToValueAtTime(0.001, startTime + duration * 0.5);
-
-  osc.connect(gain);
-  osc2.connect(gain2);
-  gain.connect(ctx.destination);
-  gain2.connect(ctx.destination);
-
-  osc.start(startTime);
-  osc2.start(startTime);
-  osc.stop(startTime + duration);
-  osc2.stop(startTime + duration);
+  const entries = Object.keys(SAMPLES);
+  await Promise.all(entries.map(async name => {
+    try{
+      const resp = await fetch(SOUNDS_URL + name + '.mp3');
+      const buf = await resp.arrayBuffer();
+      audioBuffers[name] = await ctx.decodeAudioData(buf);
+    }catch(e){ console.log('Sample manquant:', name, e); }
+  }));
+  audioReady = true;
+  console.log('Samples chargés:', Object.keys(audioBuffers).length);
 }
 
-function playChord(notes){
+// Trouver le sample le plus proche et calculer le pitch shift
+function findClosestSample(targetFreq){
+  let best = null, bestDist = Infinity;
+  for(const [name, freq] of Object.entries(SAMPLES)){
+    if(!audioBuffers[name]) continue;
+    const dist = Math.abs(Math.log2(targetFreq / freq));
+    if(dist < bestDist){ bestDist = dist; best = {name, freq}; }
+  }
+  return best;
+}
+
+function playSampleNote(targetFreq, startTime, duration){
+  const ctx = getAudioCtx();
+  const closest = findClosestSample(targetFreq);
+  if(!closest) return;
+
+  const src = ctx.createBufferSource();
+  src.buffer = audioBuffers[closest.name];
+  // Pitch shift par playbackRate
+  src.playbackRate.value = targetFreq / closest.freq;
+
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0.7, startTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+
+  src.connect(gain);
+  gain.connect(ctx.destination);
+  src.start(startTime);
+  src.stop(startTime + duration);
+}
+
+async function playChord(notes){
   if(midiActive) return;
+  await loadSamples();
   const ctx = getAudioCtx();
   const now = ctx.currentTime + 0.05;
   const arpDelay = 0.08;
-  const duration = 1.8;
+  const duration = 2.5;
 
   notes.forEach((noteName, i) => {
     const freq = NOTE_FREQ[noteName];
-    if(freq) playNote(freq, now + i * arpDelay, duration);
+    if(freq) playSampleNote(freq, now + i * arpDelay, duration);
   });
 }
 
