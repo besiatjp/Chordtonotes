@@ -469,9 +469,8 @@ function validateA(){
   recordStat(statsA,currentIndex,ok);checkUnlockA();
   document.querySelectorAll('.note-btn').forEach(b=>b.disabled=true);
   if(ok){
-    playChord(CHORDS[currentIndex].notes);  // audio indépendant
-    startGrace();
-    if(autoAdvance) setTimeout(()=>nextChord(), gracePeriod);
+    playChord(CHORDS[currentIndex].notes);
+    startGrace(autoAdvance);
   }
 }
 
@@ -537,9 +536,8 @@ function validateBChord(){
   document.getElementById('inversion-label').textContent=chord.inv;
   recordStat(statsB,currentIndex,ok);checkUnlockB();checkLevelUp();
   if(ok){
-    playChord(chord.notes);  // audio indépendant
-    startGrace();
-    if(autoAdvance) setTimeout(()=>nextChord(), gracePeriod);
+    playChord(chord.notes);
+    startGrace(autoAdvance);
   }
 }
 
@@ -696,10 +694,13 @@ function toggleAuto(){
 // ═══════════════════════════════════════
 // NAVIGATION
 // ═══════════════════════════════════════
-function startGrace(){
+function startGrace(andAdvance){
   inGrace=true;
   if(graceTimer) clearTimeout(graceTimer);
-  graceTimer=setTimeout(()=>{ inGrace=false; graceTimer=null; }, gracePeriod);
+  graceTimer=setTimeout(()=>{
+    inGrace=false; graceTimer=null;
+    if(andAdvance) nextChord();
+  }, gracePeriod);
 }
 function endGrace(){
   inGrace=false;
