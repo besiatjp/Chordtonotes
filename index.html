@@ -141,7 +141,7 @@
   #midi-status.connected #midi-dot{background:var(--green);}
   #midi-status.active #midi-dot{background:var(--accent);animation:pulse 0.4s ease;}
 </style>
-<script src="https://unpkg.com/tone@14.8.49/build/Tone.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"></script>
 </head>
 <body>
 
@@ -789,7 +789,7 @@ function initAudio(){
   if(audioReady) return Promise.resolve();
 
   // Salamander Grand Piano — samples hébergés sur jsDelivr
-  const baseUrl = 'https://cdn.jsdelivr.net/gh/gleitz/midi-js-soundfonts@gh-pages/MusyngKite/acoustic_grand_piano-mp3/';
+  const baseUrl = 'https://gleitz.github.io/midi-js-soundfonts/MusyngKite/acoustic_grand_piano-mp3/';
 
   piano = new Tone.Sampler({
     urls: {
