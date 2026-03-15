@@ -40,6 +40,10 @@ const State = {
   statsA: {},
   statsB: {},
 
+  // Pause
+  pauseStart:     null,
+  gracePaused:    false,
+
   // Stats série en cours (réinitialisées à chaque série)
   serieCorrect:   0,
   serieTotal:     0,

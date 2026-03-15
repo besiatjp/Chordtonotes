@@ -307,6 +307,34 @@ function checkLevelUp() {
   }
 }
 
+// ── Pause ─────────────────────────────
+
+function togglePause() {
+  const overlay = document.getElementById('pause-overlay');
+  const btn = document.getElementById('btn-pause');
+  const isPaused = overlay.classList.contains('open');
+
+  if (isPaused) {
+    // Reprendre — décaler serieStart du temps pausé
+    const pausedMs = Date.now() - State.pauseStart;
+    State.serieStart += pausedMs;
+    State.pauseStart = null;
+    overlay.classList.remove('open');
+    btn.textContent = '⏸';
+  } else {
+    // Pauser
+    State.pauseStart = Date.now();
+    // Suspendre le timer de grâce
+    if (State.graceTimer) {
+      clearTimeout(State.graceTimer);
+      State.graceTimer = null;
+      State.gracePaused = true;
+    }
+    overlay.classList.add('open');
+    btn.textContent = '▶';
+  }
+}
+
 function showToast(msg) {
   const t = document.getElementById('level-toast');
   t.textContent = msg;

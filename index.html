@@ -17,6 +17,12 @@
   #level-badge{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--bg);background:var(--accent);border-radius:2px;padding:3px 8px;opacity:0;transition:opacity .4s;}
   #level-badge.visible{opacity:1;}
   #topbar-right{display:flex;gap:8px;align-items:center;}
+  #btn-pause{font-family:'Space Mono',monospace;font-size:13px;color:var(--muted);background:transparent;border:1px solid var(--muted);border-radius:2px;padding:5px 10px;cursor:pointer;touch-action:manipulation;transition:border-color .2s,color .2s;}
+  #btn-pause:hover{border-color:var(--ink);color:var(--ink);}
+  #pause-overlay{background:rgba(247,244,238,.85);backdrop-filter:blur(4px);}
+  #pause-panel{display:flex;flex-direction:column;align-items:center;gap:16px;}
+  #pause-msg{font-family:'Crimson Pro',serif;font-size:28px;font-weight:300;letter-spacing:.06em;color:var(--ink);}
+  #pause-sub{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
   #btn-stats,#btn-mode{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink);background:transparent;border:1px solid var(--muted);border-radius:2px;padding:5px 12px;cursor:pointer;touch-action:manipulation;}
   #btn-stats:hover,#btn-mode:hover{border-color:var(--ink);}
 
@@ -159,6 +165,7 @@
   <div id="mode-indicator">Mode 1 — Séquentiel · Exo A</div>
   <div id="level-badge">Niveau 2</div>
   <div id="topbar-right">
+    <button id="btn-pause" onclick="togglePause()" title="Pause">⏸</button>
     <button id="btn-stats" onclick="openStats()">Stats</button>
     <button id="btn-mode" onclick="openModePanel()">Mode ▾</button>
   </div>
@@ -224,6 +231,15 @@
       <button class="btn secondary" onclick="replaySerie()">↺ Rejouer</button>
       <button class="btn" onclick="endChooseMode()">Nouveau mode</button>
     </div>
+  </div>
+</div>
+
+<!-- OVERLAY PAUSE -->
+<div id="pause-overlay" class="overlay">
+  <div id="pause-panel">
+    <div id="pause-msg">En pause</div>
+    <div id="pause-sub">Appuie sur ▶ pour reprendre</div>
+    <button class="btn" onclick="togglePause()">▶ Reprendre</button>
   </div>
 </div>
 
