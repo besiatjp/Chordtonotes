@@ -134,6 +134,18 @@
   #toggle-auto.on #toggle-track{border-color:var(--ink);background:var(--ink);}
   #toggle-auto.on #toggle-thumb{transform:translateX(14px);background:var(--bg);}
 
+  /* OVERLAY FIN DE SÉRIE */
+  #end-panel{background:var(--bg);border:1px solid var(--ink);border-radius:4px;padding:36px 48px;display:flex;flex-direction:column;gap:18px;width:clamp(320px,55vw,480px);align-items:center;text-align:center;}
+  #end-panel h2{font-family:'Crimson Pro',serif;font-weight:300;font-size:24px;letter-spacing:.06em;}
+  #end-score{font-family:'Crimson Pro',serif;font-size:64px;font-weight:300;line-height:1;}
+  #end-score-label{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+  #end-encouragement{font-family:'Crimson Pro',serif;font-size:18px;font-style:italic;color:var(--muted);}
+  #end-details{display:flex;flex-direction:column;gap:6px;width:100%;}
+  .end-detail-row{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid rgba(26,22,18,.08);padding:4px 0;}
+  .end-detail-label{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+  .end-detail-value{font-family:'Crimson Pro',serif;font-size:16px;color:var(--ink);}
+  #end-buttons{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:4px;}
+
   /* MIDI */
   #midi-status{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:6px;opacity:0;transition:opacity .4s;pointer-events:none;}
   #midi-status.visible{opacity:1;}
@@ -190,6 +202,30 @@
     <div id="stats-table"></div>
     <button id="stats-reset" onclick="confirmReset()">Réinitialiser</button>
     <button class="panel-close" onclick="closeStats()">Fermer</button>
+  </div>
+</div>
+
+<!-- OVERLAY FIN DE SÉRIE -->
+<div id="end-overlay" class="overlay">
+  <div id="end-panel">
+    <h2 id="end-title">Série terminée !</h2>
+    <div id="end-score">—</div>
+    <div id="end-score-label">bonnes réponses</div>
+    <div id="end-encouragement"></div>
+    <div id="end-details">
+      <div class="end-detail-row">
+        <span class="end-detail-label">Temps total</span>
+        <span class="end-detail-value" id="end-time">—</span>
+      </div>
+      <div class="end-detail-row">
+        <span class="end-detail-label">Accord le plus raté</span>
+        <span class="end-detail-value" id="end-worst">—</span>
+      </div>
+    </div>
+    <div id="end-buttons">
+      <button class="btn secondary" onclick="replaySerie()">↺ Rejouer</button>
+      <button class="btn" onclick="endChooseMode()">Nouveau mode</button>
+    </div>
   </div>
 </div>
 
@@ -283,6 +319,9 @@ let exoBLevel=1;
 const LEVEL2_THRESHOLD=0.80;
 const statsA={},statsB={};
 let currentStatsTab='A';
+// Suivi de la série en cours
+let serieCorrect=0, serieTotal=0, serieStart=null;
+let serieStats={};  // {chordIndex: {correct,total}} pour la série
 let autoAdvance=false;
 let gracePeriod=3000;  // ms — réglable
 let graceTimer=null;  // timer actif après une bonne réponse
@@ -421,6 +460,7 @@ function setMode(mode,exo){
   const badge=document.getElementById('level-badge');
   if(exo==='B'){badge.textContent='Niveau '+exoBLevel;badge.classList.add('visible');}else badge.classList.remove('visible');
   closeModePanel();
+  resetSerie();
   setTimeout(()=>{ showChord(currentIndex); updateProgress(); }, 50);
 }
 
@@ -721,7 +761,81 @@ function resetAnswer(){
 }
 function setFeedback(cls,msg){const fb=document.getElementById('feedback');fb.textContent=msg;fb.className=cls;}
 function updateSlots(arr){['slot-0','slot-1','slot-2'].forEach((id,i)=>{const e=document.getElementById(id);if(arr[i]){e.textContent=arr[i];e.classList.add('filled');}else{e.textContent='—';e.classList.remove('filled');}});}
-function nextChord(){seqPos=(seqPos+1)%sequence.length;currentIndex=sequence[seqPos];updateProgress();showChord(currentIndex);}
+function nextChord(){
+  // Vérifier si on arrive à la fin de la série
+  if(seqPos===sequence.length-1){
+    showEndOverlay();
+    return;
+  }
+  seqPos=(seqPos+1)%sequence.length;
+  currentIndex=sequence[seqPos];
+  updateProgress();
+  showChord(currentIndex);
+}
+function resetSerie(){
+  serieCorrect=0; serieTotal=0; serieStats={};
+  serieStart=Date.now();
+}
+
+function showEndOverlay(){
+  // Score
+  const pct = serieTotal>0 ? Math.round(serieCorrect/serieTotal*100) : 0;
+  document.getElementById('end-score').textContent = serieCorrect+'/'+serieTotal;
+  document.getElementById('end-score').style.color =
+    pct>=80?'var(--green)':pct>=50?'var(--gold)':'var(--accent)';
+
+  // Encouragement
+  const msgs = {
+    100: 'Parfait ! Série sans faute 🎉',
+    80:  'Excellent travail !',
+    60:  'Bien — continue ainsi.',
+    40:  'Courage, ça vient !',
+    0:   'À reprendre — ne te décourage pas.'
+  };
+  const key = Object.keys(msgs).reverse().find(k=>pct>=parseInt(k));
+  document.getElementById('end-encouragement').textContent = msgs[key];
+
+  // Temps
+  const elapsed = Math.round((Date.now()-serieStart)/1000);
+  const min = Math.floor(elapsed/60), sec = elapsed%60;
+  document.getElementById('end-time').textContent =
+    (min>0?min+'min ':'')+sec+'s';
+
+  // Accord le plus raté
+  let worstName='—', worstRate=1;
+  for(const [idx,s] of Object.entries(serieStats)){
+    if(s.total>0){
+      const rate=s.correct/s.total;
+      if(rate<worstRate){ worstRate=rate; worstName=CHORDS[idx].name+' — '+CHORDS[idx].inv; }
+    }
+  }
+  document.getElementById('end-worst').textContent = worstName;
+
+  document.getElementById('end-overlay').classList.add('open');
+}
+
+function closeEnd(){
+  document.getElementById('end-overlay').classList.remove('open');
+  seqPos=0; currentIndex=sequence[0];
+  resetSerie();
+  updateProgress();
+  showChord(currentIndex);
+}
+
+function endChooseMode(){
+  document.getElementById('end-overlay').classList.remove('open');
+  openModePanel();
+}
+
+function replaySerie(){
+  document.getElementById('end-overlay').classList.remove('open');
+  sequence=buildSequence(currentMode);
+  seqPos=0; currentIndex=sequence[0];
+  resetSerie();
+  updateProgress();
+  showChord(currentIndex);
+}
+
 function updateProgress(){document.getElementById('progress').textContent=(seqPos+1)+' / '+sequence.length;}
 
 // ═══════════════════════════════════════
@@ -865,6 +979,7 @@ window.addEventListener('load',()=>{
   sequence=buildSequence(1);seqPos=0;currentIndex=sequence[0];
   document.getElementById('btn-chord-pick').style.opacity='0.4';
   document.getElementById('btn-chord-pick').style.pointerEvents='none';
+  resetSerie();
   initSpeech();initMIDI();
   showChord(currentIndex);updateProgress();
 });
