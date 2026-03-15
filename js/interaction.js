@@ -212,6 +212,21 @@ function toggleChordDropdown() {
   const dd = document.getElementById('chord-dropdown');
   if (dd.classList.contains('open')) { dd.classList.remove('open'); return; }
   buildChordDropdown();
+  // Ouvrir vers le haut pour éviter de dépasser le bas de l'écran
+  const btn = document.getElementById('btn-chord-pick');
+  const rect = btn.getBoundingClientRect();
+  const spaceBelow = window.innerHeight - rect.bottom;
+  if (spaceBelow < 320) {
+    dd.style.top = 'auto';
+    dd.style.bottom = '100%';
+    dd.style.marginBottom = '4px';
+    dd.style.marginTop = '0';
+  } else {
+    dd.style.top = '100%';
+    dd.style.bottom = 'auto';
+    dd.style.marginTop = '4px';
+    dd.style.marginBottom = '0';
+  }
   dd.classList.add('open');
 }
 
