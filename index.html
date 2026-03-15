@@ -469,9 +469,10 @@ function validateA(){
   recordStat(statsA,currentIndex,ok);checkUnlockA();
   document.querySelectorAll('.note-btn').forEach(b=>b.disabled=true);
   if(ok){
-    playChord(CHORDS[currentIndex].notes);
-    startGrace();
-    if(autoAdvance) setTimeout(()=>{ if(!inGrace) return; endGrace(); nextChord(); }, gracePeriod+800);
+    playChord(CHORDS[currentIndex].notes).then(()=>{
+      startGrace();
+      if(autoAdvance) setTimeout(()=>{ if(!inGrace) return; endGrace(); nextChord(); }, gracePeriod+800);
+    });
   }
 }
 
@@ -537,9 +538,10 @@ function validateBChord(){
   document.getElementById('inversion-label').textContent=chord.inv;
   recordStat(statsB,currentIndex,ok);checkUnlockB();checkLevelUp();
   if(ok){
-    playChord(chord.notes);
-    startGrace();
-    if(autoAdvance) setTimeout(()=>{ if(!inGrace) return; endGrace(); nextChord(); }, gracePeriod+800);
+    playChord(chord.notes).then(()=>{
+      startGrace();
+      if(autoAdvance) setTimeout(()=>{ if(!inGrace) return; endGrace(); nextChord(); }, gracePeriod+800);
+    });
   }
 }
 
