@@ -1,35 +1,41 @@
 // ═══════════════════════════════════════
 // data.js — Données statiques
 // ═══════════════════════════════════════
-
 const NOTE_INDEX = {
   'Do4':-1,'Ré4':0,'Mi4':1,'Fa4':2,'Sol4':3,'La4':4,'Si4':5,
   'Do5':6,'Ré5':7,'Mi5':8,'Fa5':9,'Sol5':10,
   'La5':11,'Si5':12,'Do6':13,'Ré6':14
 };
 
+// Index positions sur la portée de Fa
+// Si2=0 (ligne 1), Do3=1 (espace 1), Ré3=2 (ligne 2)...
+const NOTE_INDEX_FA = {
+  'Sol2':-2,'La2':-1,'Si2':0,
+  'Do3':1,'Ré3':2,'Mi3':3,'Fa3':4,'Sol3':5,'La3':6,'Si3':7
+};
+
 const CHORDS = [
-  {name:'Do majeur', inv:'Position fondamentale', notes:['Do4','Mi4','Sol4']},
-  {name:'Do majeur', inv:'1ère inversion',        notes:['Mi4','Sol4','Do5']},
-  {name:'Do majeur', inv:'2ème inversion',        notes:['Sol4','Do5','Mi5']},
-  {name:'Ré mineur', inv:'Position fondamentale', notes:['Ré4','Fa4','La4']},
-  {name:'Ré mineur', inv:'1ère inversion',        notes:['Fa4','La4','Ré5']},
-  {name:'Ré mineur', inv:'2ème inversion',        notes:['La4','Ré5','Fa5']},
-  {name:'Mi mineur', inv:'Position fondamentale', notes:['Mi4','Sol4','Si4']},
-  {name:'Mi mineur', inv:'1ère inversion',        notes:['Sol4','Si4','Mi5']},
-  {name:'Mi mineur', inv:'2ème inversion',        notes:['Si4','Mi5','Sol5']},
-  {name:'Fa majeur', inv:'Position fondamentale', notes:['Fa4','La4','Do5']},
-  {name:'Fa majeur', inv:'1ère inversion',        notes:['La4','Do5','Fa5']},
-  {name:'Fa majeur', inv:'2ème inversion',        notes:['Do5','Fa5','La5']},
-  {name:'Sol majeur',inv:'Position fondamentale', notes:['Sol4','Si4','Ré5']},
-  {name:'Sol majeur',inv:'1ère inversion',        notes:['Si4','Ré5','Sol5']},
-  {name:'Sol majeur',inv:'2ème inversion',        notes:['Ré5','Sol5','Si5']},
-  {name:'La mineur', inv:'Position fondamentale', notes:['La4','Do5','Mi5']},
-  {name:'La mineur', inv:'1ère inversion',        notes:['Do5','Mi5','La5']},
-  {name:'La mineur', inv:'2ème inversion',        notes:['Mi5','La5','Do6']},
-  {name:'Si diminué',inv:'Position fondamentale', notes:['Si4','Ré5','Fa5']},
-  {name:'Si diminué',inv:'1ère inversion',        notes:['Ré5','Fa5','Si5']},
-  {name:'Si diminué',inv:'2ème inversion',        notes:['Fa5','Si5','Ré6']},
+  {name:'Do majeur', inv:'Position fondamentale', notes:['Do4','Mi4','Sol4'], bass:'Do3'},
+  {name:'Do majeur', inv:'1ère inversion',        notes:['Mi4','Sol4','Do5'], bass:'Do3'},
+  {name:'Do majeur', inv:'2ème inversion',        notes:['Sol4','Do5','Mi5'], bass:'Do3'},
+  {name:'Ré mineur', inv:'Position fondamentale', notes:['Ré4','Fa4','La4'], bass:'Ré3'},
+  {name:'Ré mineur', inv:'1ère inversion',        notes:['Fa4','La4','Ré5'], bass:'Ré3'},
+  {name:'Ré mineur', inv:'2ème inversion',        notes:['La4','Ré5','Fa5'], bass:'Ré3'},
+  {name:'Mi mineur', inv:'Position fondamentale', notes:['Mi4','Sol4','Si4'], bass:'Mi3'},
+  {name:'Mi mineur', inv:'1ère inversion',        notes:['Sol4','Si4','Mi5'], bass:'Mi3'},
+  {name:'Mi mineur', inv:'2ème inversion',        notes:['Si4','Mi5','Sol5'], bass:'Mi3'},
+  {name:'Fa majeur', inv:'Position fondamentale', notes:['Fa4','La4','Do5'], bass:'Fa3'},
+  {name:'Fa majeur', inv:'1ère inversion',        notes:['La4','Do5','Fa5'], bass:'Fa3'},
+  {name:'Fa majeur', inv:'2ème inversion',        notes:['Do5','Fa5','La5'], bass:'Fa3'},
+  {name:'Sol majeur',inv:'Position fondamentale', notes:['Sol4','Si4','Ré5'], bass:'Sol2'},
+  {name:'Sol majeur',inv:'1ère inversion',        notes:['Si4','Ré5','Sol5'], bass:'Sol2'},
+  {name:'Sol majeur',inv:'2ème inversion',        notes:['Ré5','Sol5','Si5'], bass:'Sol2'},
+  {name:'La mineur', inv:'Position fondamentale', notes:['La4','Do5','Mi5'], bass:'La2'},
+  {name:'La mineur', inv:'1ère inversion',        notes:['Do5','Mi5','La5'], bass:'La2'},
+  {name:'La mineur', inv:'2ème inversion',        notes:['Mi5','La5','Do6'], bass:'La2'},
+  {name:'Si diminué',inv:'Position fondamentale', notes:['Si4','Ré5','Fa5'], bass:'Si2'},
+  {name:'Si diminué',inv:'1ère inversion',        notes:['Ré5','Fa5','Si5'], bass:'Si2'},
+  {name:'Si diminué',inv:'2ème inversion',        notes:['Fa5','Si5','Ré6'], bass:'Si2'},
 ];
 
 const CHORD_NAMES = [
